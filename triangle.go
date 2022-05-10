@@ -61,6 +61,10 @@ func (t Triangle) sides() (Vec, Vec, Vec) {
 	return Sub(t[1], t[0]), Sub(t[2], t[1]), Sub(t[0], t[2])
 }
 
+func (t Triangle) Add(v Vec) Triangle {
+	return Triangle{Add(t[0], v), Add(t[1], v), Add(t[2], v)}
+}
+
 // orderedLengths returns the lengths of the sides of the triangle such that
 // a ≤ b ≤ c.
 func (t Triangle) orderedLengths() (a, b, c float64) {

@@ -4,7 +4,10 @@
 
 package main
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 // Vec is a 3D vector.
 type Vec struct {
@@ -140,4 +143,12 @@ func EqualWithin(a, b Vec, tol float64) bool {
 	return math.Abs(a.X-b.X) <= tol &&
 		math.Abs(a.Y-b.Y) <= tol &&
 		math.Abs(a.Z-b.Z) <= tol
+}
+
+func PointCloud(N int, scale float64) []Vec {
+	v := make([]Vec, N)
+	for i := range v {
+		v[i] = Vec{rand.Float64() * scale, rand.Float64() * scale, rand.Float64() * scale}
+	}
+	return v
 }

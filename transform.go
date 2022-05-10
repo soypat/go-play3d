@@ -27,7 +27,7 @@ func (t *Transform) SetTranslate(v Vec) {
 }
 
 // Translate3D returns a 4x4 translation matrix.
-func Translate3D(v Vec) Transform {
+func Translate(v Vec) Transform {
 	return Transform{
 		1, 0, 0, v.X,
 		0, 1, 0, v.Y,
@@ -274,3 +274,94 @@ func rotateToVec(a, b Vec) Transform {
 		0, 0, 0, 1,
 	}
 }
+
+/* Does same thing as rotateToVector
+func RotateToVector(a, b Vec) Transform {
+	const epsilon = 1e-12
+	// is either vector == 0?
+	if EqualWithin(a, Vec{}, epsilon) || EqualWithin(b, Vec{}, epsilon) {
+		return Identity3d()
+	}
+	// normalize both vectors
+	a = Unit(a)
+	b = Unit(b)
+	// are the vectors the same?
+	if EqualWithin(a, b, epsilon) {
+		return Identity3d()
+	}
+	// are the vectors opposite (180 degrees apart)?
+	if EqualWithin(Scale(-1, a), b, epsilon) {
+		return Transform{
+			-1, 0, 0, 0,
+			0, -1, 0, 0,
+			0, 0, -1, 0,
+			0, 0, 0, 1}
+	}
+
+	// general case
+	// See:	https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+	v := Cross(a, b)
+	k := 1 / (1 + Dot(a, b))
+	vx := M33{0, -v.Z, v.Y, v.Z, 0, -v.X, -v.Y, v.X, 0}
+	eye := M33{1, 0, 0, 0, 1, 0, 0, 0, 1}
+	r := eye.Add(vx).Add(vx.Mul(vx).MulScalar(k))
+	return Transform{
+		r.x00, r.x01, r.x02, 0,
+		r.x10, r.x11, r.x12, 0,
+		r.x20, r.x21, r.x22, 0,
+		0, 0, 0, 1,
+	}
+}
+
+// M33 is a 3x3 matrix.
+type M33 struct {
+	x00, x01, x02 float64
+	x10, x11, x12 float64
+	x20, x21, x22 float64
+}
+
+// Mul multiplies 3x3 matrices.
+func (a M33) Mul(b M33) M33 {
+	m := M33{}
+	m.x00 = a.x00*b.x00 + a.x01*b.x10 + a.x02*b.x20
+	m.x10 = a.x10*b.x00 + a.x11*b.x10 + a.x12*b.x20
+	m.x20 = a.x20*b.x00 + a.x21*b.x10 + a.x22*b.x20
+	m.x01 = a.x00*b.x01 + a.x01*b.x11 + a.x02*b.x21
+	m.x11 = a.x10*b.x01 + a.x11*b.x11 + a.x12*b.x21
+	m.x21 = a.x20*b.x01 + a.x21*b.x11 + a.x22*b.x21
+	m.x02 = a.x00*b.x02 + a.x01*b.x12 + a.x02*b.x22
+	m.x12 = a.x10*b.x02 + a.x11*b.x12 + a.x12*b.x22
+	m.x22 = a.x20*b.x02 + a.x21*b.x12 + a.x22*b.x22
+	return m
+}
+
+// Add two 3x3 matrices.
+func (a M33) Add(b M33) M33 {
+	return M33{
+		x00: a.x00 + b.x00,
+		x10: a.x10 + b.x10,
+		x20: a.x20 + b.x20,
+		x01: a.x01 + b.x01,
+		x11: a.x11 + b.x11,
+		x21: a.x21 + b.x21,
+		x02: a.x02 + b.x02,
+		x12: a.x12 + b.x12,
+		x22: a.x22 + b.x22,
+	}
+}
+
+// MulScalar multiplies each 3x3 matrix component by a scalar.
+func (a M33) MulScalar(k float64) M33 {
+	return M33{
+		x00: k * a.x00,
+		x10: k * a.x10,
+		x20: k * a.x20,
+		x01: k * a.x01,
+		x11: k * a.x11,
+		x21: k * a.x21,
+		x02: k * a.x02,
+		x12: k * a.x12,
+		x22: k * a.x22,
+	}
+}
+*/

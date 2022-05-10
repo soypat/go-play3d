@@ -35,6 +35,7 @@ func main() {
 	camera = three.NewPerspectiveCamera(70, windowWidth/windowHeight, size/100, size*100)
 	camera.SetPosition(three.NewVector3(size/2, 0, 0))
 	camera.LookAt(three.NewVector3(0, 0, 0))
+	camera.SetUp(three.NewVector3(0, 1, 0))
 	scene = three.NewScene()
 
 	light := three.NewDirectionalLight(three.NewColor("white"), 1)
@@ -54,6 +55,7 @@ func main() {
 
 	// Controls to rotate camera around earth
 	controls = three.NewTrackballControls(camera, rendererElement)
+	controls.SetTarget(three.NewVector3(0, 0, 0))
 	controls.SetMaxDistance(size * 10)
 	controls.SetMinDistance(0.1)
 	controls.SetZoomSpeed(1.2)
