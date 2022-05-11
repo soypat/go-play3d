@@ -26,9 +26,34 @@ func (t Triangle) Normal() Vec {
 	return Cross(s1, s2)
 }
 
+func (t Triangle) Circumcenter() Vec {
+	return Add(t[0], t.toCircumcenter())
+}
+
+func (t Triangle) Circumradius() float64 {
+	return Norm2(t.toCircumcenter())
+}
+
+func (t Triangle) toCircumcenter() Vec {
+	// from https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
+	// N = ∥c−a∥2[(b−a)×(c−a)]×(b−a)+∥b−a∥2[(c−a)×(b−a)]×(c−a)
+	// aC = N / 2∥(b−a)×(c−a)∥2
+	ac := Sub(t[2], t[0])
+	ab := Sub(t[1], t[0])
+	abXac := Cross(ab, ac)
+	num := Add(Scale(Norm2(ac), Cross(abXac, ab)), Scale(Norm2(ab), Cross(ac, abXac)))
+	return Scale(1/(2*Norm2(abXac)), num)
+}
+
 // Degenerate returns true if triangle's vertices are collinear to within
 // a certain tolerance.
 func (t Triangle) Degenerate(tol float64) bool {
+	// a triangle whose circumradius-to-shortest edge ratio is greater than ½ is said to be skinny
+	// cr := t.Circumradius()
+	// a, _, _ := t.orderedLengths()
+	// ratio := cr / a
+	// return ratio > 0.5
+
 	// TODO(soypat): Must be a better way to do this.
 	// https://stackoverflow.com/questions/33037449/given-three-side-of-a-triangle-how-can-i-define-whether-it-is-a-degenerate-tria
 	a, b, c := t.orderedLengths()

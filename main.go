@@ -33,7 +33,7 @@ func main() {
 	windowHeight := js.Global().Get("innerHeight").Float()
 	devicePixelRatio := js.Global().Get("devicePixelRatio").Float()
 	camera = three.NewPerspectiveCamera(70, windowWidth/windowHeight, size/100, size*100)
-	camera.SetPosition(three.NewVector3(size/2, 0, 0))
+	camera.SetPosition(three.NewVector3(size/5, size/4, size/4))
 	camera.LookAt(three.NewVector3(0, 0, 0))
 	camera.SetUp(three.NewVector3(0, 1, 0))
 	scene = three.NewScene()

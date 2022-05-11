@@ -26,32 +26,21 @@ func makeObjects() three.Object3D {
 		pxy := r2.Vec{X: transformedPoints[i].X, Y: transformedPoints[i].Y}
 		transformedPoints[i].Z = 0
 		tri2d := transformed.lower()
-		if inTriangle(pxy, tri2d) {
-			continue
-		}
-		minDist := math.MaxFloat64
-		for j := range transformed {
-			edge := [2]r2.Vec{{X: transformed[j].X, Y: transformed[j].Y}, {X: transformed[(j+1)%3].X, Y: transformed[(j+1)%3].Y}}
-			distance, _ := distToLine(pxy, edge)
-			d := r2.Norm(distance)
-			if d < minDist {
-				minDist = d
-				pointOnTriangle := Sub(transformedPoints[i], Vec{X: distance.X, Y: distance.Y})
-				transformedPointDist[i] = [2]Vec{transformedPoints[i], pointOnTriangle}
-			}
-
-		}
+		pt := closestToTriangle2(pxy, tri2d)
+		transformedPointDist[i] = [2]Vec{transformedPoints[i], Vec{X: pt.X, Y: pt.Y}}
 	}
 
 	tri1 = triangleOutlines([]Triangle{goldie}, lineColor("gold"))
 	tri2 = triangleOutlines([]Triangle{transformed}, lineColor("fuchsia"))
 	// pts := points(PointCloud(100, 2), pointColor("red"))
+
 	grp.Add(three.NewAxesHelper(1))
 	grp.Add(tri1)
 	grp.Add(tri2)
 	grp.Add(pointsObj(points, pointColor("white")))
 	grp.Add(pointsObj(transformedPoints, pointColor("red")))
 	grp.Add(linesObj(transformedPointDist, lineColor("white")))
+	grp.Add(pointsObj([]Vec{goldie.Circumcenter()}, pointColor("gold")))
 	_, _ = tri1, tri2
 	return grp
 }
@@ -69,32 +58,51 @@ func jonesTransform(t Triangle) Transform {
 	Tform = Tform.Mul(Tdis)
 	t = Tform.ApplyTriangle(t)
 	// rotate third point so that it is on yz plane
+	t[2].X = 0 // eliminate X component.
 	alpha := math.Acos(Cos(Vec{Y: 1}, t[2]))
 	Trot := Rotate3d(Vec{X: 1}, -alpha)
 	Tform = Trot.Mul(Tform)
 	return Tform
 }
 
+func closestToTriangle2(p r2.Vec, tri [3]r2.Vec) (pointOnTriangle r2.Vec) {
+	if inTriangle(p, tri) {
+		return p
+	}
+	minDist := math.MaxFloat64
+	for j := range tri {
+		edge := [2]r2.Vec{{X: tri[j].X, Y: tri[j].Y}, {X: tri[(j+1)%3].X, Y: tri[(j+1)%3].Y}}
+		distance, _ := distToLine(p, edge)
+		d2 := r2.Norm2(distance)
+		if d2 < minDist {
+			minDist = d2
+			pointOnTriangle = r2.Sub(p, distance)
+		}
+	}
+	return pointOnTriangle
+}
+
 // distToLine returns distance vector from point to line.
 // The boolean return parameter is set to true if the point
 // is closest to a vertex of the line.
-func distToLine(p r2.Vec, line [2]r2.Vec) (r2.Vec, bool) {
+func distToLine(p r2.Vec, ln [2]r2.Vec) (r2.Vec, bool) {
 
-	lineDir := r2.Sub(line[1], line[0])
+	lineDir := r2.Sub(ln[1], ln[0])
 	perpendicular := r2.Vec{-lineDir.Y, lineDir.X}
 
-	perpend2 := r2.Add(line[1], perpendicular)
-	e2 := edgeEquation(p, [2]r2.Vec{line[1], perpend2})
+	perpend2 := r2.Add(ln[1], perpendicular)
+	e2 := edgeEquation(p, [2]r2.Vec{ln[1], perpend2})
 	if e2 > 0 {
-		return r2.Sub(p, line[1]), true
+		return r2.Sub(p, ln[1]), true
 	}
-	perpend1 := r2.Add(line[0], perpendicular)
-	e1 := edgeEquation(p, [2]r2.Vec{line[0], perpend1})
+	perpend1 := r2.Add(ln[0], perpendicular)
+	e1 := edgeEquation(p, [2]r2.Vec{ln[0], perpend1})
 	if e1 < 0 {
-		return r2.Sub(p, line[0]), true
+		return r2.Sub(p, ln[0]), true
 	}
-	e3 := distToLineInfinite(p, line) //edgeEquation(p, line)
-	return r2.Scale(-e3, perpendicular), false
+
+	e3 := distToLineInfinite(p, ln) //edgeEquation(p, line)
+	return r2.Scale(-e3, r2.Unit(perpendicular)), false
 }
 
 // line passes through two points P1 = (x1, y1) and P2 = (x2, y2)

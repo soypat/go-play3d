@@ -16,6 +16,8 @@ type Vec struct {
 	X, Y, Z float64
 }
 
+func (v Vec) lower() r2.Vec { return r2.Vec{X: v.X, Y: v.Y} }
+
 // Add returns the vector sum of p and q.
 func Add(p, q Vec) Vec {
 	return Vec{
