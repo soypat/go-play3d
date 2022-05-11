@@ -1,12 +1,38 @@
+//go:build js
+
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"syscall/js"
 	"time"
 
 	"github.com/soypat/gwasm"
+	"github.com/soypat/sdf3ui/uirender"
 	"github.com/soypat/three"
 )
+
+//go:generate go run gen_shape.go
+
+//go:embed shape.tri
+var _gen_shape []byte
+
+func genShape() []Triangle {
+	triangles, err := uirender.DecodeAll(bytes.NewReader(_gen_shape))
+	if err != nil {
+		panic(err)
+	}
+	tri := make([]Triangle, len(triangles))
+	for i := range tri {
+		tri[i] = [3]Vec{
+			Vec(triangles[i].V[0]),
+			Vec(triangles[i].V[1]),
+			Vec(triangles[i].V[2]),
+		}
+	}
+	return tri
+}
 
 var (
 	scene    three.Scene
@@ -20,6 +46,7 @@ const (
 )
 
 func main() {
+
 	// THREE Initialization.
 	gwasm.AddScript("https://threejs.org/build/three.js", "THREE", time.Second)
 	gwasm.AddScript("assets/trackball_controls.js", "TrackballControls", time.Second)

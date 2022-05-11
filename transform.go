@@ -20,6 +20,7 @@ func Identity3d() Transform {
 		0, 0, 1, 0,
 		0, 0, 0, 1}
 }
+
 func (t *Transform) SetTranslate(v Vec) {
 	t.x03 = v.X
 	t.x13 = v.Y

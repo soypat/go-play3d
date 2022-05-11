@@ -95,6 +95,14 @@ type Box struct {
 	Min, Max Vec
 }
 
+func Elem(f float64) Vec {
+	return Vec{
+		X: f,
+		Y: f,
+		Z: f,
+	}
+}
+
 // minElem return a vector with the minimum components of two vectors.
 func minElem(a, b Vec) Vec {
 	return Vec{
@@ -170,4 +178,18 @@ func inTriangle(pt r2.Vec, tri [3]r2.Vec) bool {
 	has_neg := (d1 < 0) || (d2 < 0) || (d3 < 0)
 	has_pos := (d1 > 0) || (d2 > 0) || (d3 > 0)
 	return !(has_neg && has_pos)
+}
+
+type Veci [3]int
+
+func (v Veci) ToR3() Vec {
+	return Vec{X: float64(v[0]), Y: float64(v[1]), Z: float64(v[2])}
+}
+
+func (v Veci) Add(a Veci) Veci {
+	return Veci{v[0] + a[0], v[1] + a[1], v[2] + a[2]}
+}
+
+func R3ToI(v Vec) Veci {
+	return Veci{int(v.X), int(v.Y), int(v.Z)}
 }
