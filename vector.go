@@ -149,11 +149,12 @@ func EqualWithin(a, b Vec, tol float64) bool {
 		math.Abs(a.Z-b.Z) <= tol
 }
 
-func PointCloud(N int, scale float64) []Vec {
+func PointCloud(N int, scale float64, offset Vec) []Vec {
 	scale *= 2
 	v := make([]Vec, N)
 	for i := range v {
-		v[i] = Vec{(rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale}
+		rnd := Vec{(rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale}
+		v[i] = Add(rnd, offset)
 	}
 	return v
 }

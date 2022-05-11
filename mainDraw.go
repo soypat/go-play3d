@@ -10,7 +10,7 @@ import (
 func makeObjects() three.Object3D {
 	var tri1, tri2 three.Object3D
 	grp := three.NewGroup()
-	goldie := Triangle{Vec{0, 0, 0}, Vec{1, 0, 0}, Vec{0.5, 1, 0}} // goldie is our base working triangle
+	goldie := Triangle{Vec{0, 0, 0}, Vec{2, 0, 0}, Vec{0.5, 1, 0}} // goldie is our base working triangle
 	goldDisplacement := Vec{Z: 1}
 	goldie = goldie.Add(goldDisplacement)
 	Trot := Rotate3d(Vec{X: 1, Y: 1, Z: 1}, 0)
@@ -18,16 +18,18 @@ func makeObjects() three.Object3D {
 	Tform := jonesTransform(goldie)
 	transformed := Tform.ApplyTriangle(goldie)
 	const plen = 80
-	points := PointCloud(plen, 1)
+	points := PointCloud(plen, goldie.Circumradius()*2, goldie.Centroid())
 	transformedPoints := make([]Vec, plen)
 	transformedPointDist := make([][2]Vec, plen)
+	pointDist := make([][2]Vec, plen)
 	for i := range points {
 		transformedPoints[i] = Tform.ApplyPosition(points[i])
 		pxy := r2.Vec{X: transformedPoints[i].X, Y: transformedPoints[i].Y}
 		transformedPoints[i].Z = 0
 		tri2d := transformed.lower()
-		pt := closestToTriangle2(pxy, tri2d)
+		pt := closestOnTriangle2(pxy, tri2d)
 		transformedPointDist[i] = [2]Vec{transformedPoints[i], Vec{X: pt.X, Y: pt.Y}}
+		pointDist[i] = [2]Vec{points[i], goldie.Closest(points[i])}
 	}
 
 	tri1 = triangleOutlines([]Triangle{goldie}, lineColor("gold"))
@@ -41,6 +43,7 @@ func makeObjects() three.Object3D {
 	grp.Add(pointsObj(transformedPoints, pointColor("red")))
 	grp.Add(linesObj(transformedPointDist, lineColor("white")))
 	grp.Add(pointsObj([]Vec{goldie.Circumcenter()}, pointColor("gold")))
+	grp.Add(linesObj(pointDist, lineColor("beige")))
 	_, _ = tri1, tri2
 	return grp
 }
@@ -65,7 +68,7 @@ func jonesTransform(t Triangle) Transform {
 	return Tform
 }
 
-func closestToTriangle2(p r2.Vec, tri [3]r2.Vec) (pointOnTriangle r2.Vec) {
+func closestOnTriangle2(p r2.Vec, tri [3]r2.Vec) (pointOnTriangle r2.Vec) {
 	if inTriangle(p, tri) {
 		return p
 	}

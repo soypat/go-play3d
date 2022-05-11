@@ -71,6 +71,16 @@ func (t Triangle) Area() float64 {
 	return math.Sqrt(A) / 4
 }
 
+func (t Triangle) Closest(p Vec) Vec {
+	Tform := jonesTransform(t)
+	pxy := Tform.ApplyPosition(p)
+	txy := Tform.ApplyTriangle(t)
+	// get point on triangle closest to point
+	ptxy := closestOnTriangle2(pxy.lower(), txy.lower())
+	inv := Tform.Inverse()
+	return inv.ApplyPosition(Vec{ptxy.X, ptxy.Y, 0})
+}
+
 // Centroid returns the intersection of the three medians of the triangle
 // as a point in space.
 func (t Triangle) Centroid() Vec {
