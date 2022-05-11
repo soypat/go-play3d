@@ -4,7 +4,11 @@
 
 package main
 
-import "math"
+import (
+	"math"
+
+	"gonum.org/v1/gonum/spatial/r2"
+)
 
 // Triangle represents a triangle in 3D space and
 // is composed by 3 vectors corresponding to the position
@@ -84,4 +88,12 @@ func (t Triangle) orderedLengths() (a, b, c float64) {
 		b = l3
 	}
 	return a, b, c
+}
+
+func (t Triangle) lower() [3]r2.Vec {
+	return [3]r2.Vec{
+		{X: t[0].X, Y: t[0].Y},
+		{X: t[1].X, Y: t[1].Y},
+		{X: t[2].X, Y: t[2].Y},
+	}
 }

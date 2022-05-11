@@ -7,6 +7,8 @@ package main
 import (
 	"math"
 	"math/rand"
+
+	"gonum.org/v1/gonum/spatial/r2"
 )
 
 // Vec is a 3D vector.
@@ -146,9 +148,23 @@ func EqualWithin(a, b Vec, tol float64) bool {
 }
 
 func PointCloud(N int, scale float64) []Vec {
+	scale *= 2
 	v := make([]Vec, N)
 	for i := range v {
-		v[i] = Vec{rand.Float64() * scale, rand.Float64() * scale, rand.Float64() * scale}
+		v[i] = Vec{(rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale, (rand.Float64() - 0.5) * scale}
 	}
 	return v
+}
+
+func d2Sign(p1, p2, p3 r2.Vec) float64 {
+	return (p1.X-p3.X)*(p2.Y-p3.Y) - (p2.X-p3.X)*(p1.Y-p3.Y)
+}
+
+func inTriangle(pt r2.Vec, tri [3]r2.Vec) bool {
+	d1 := d2Sign(pt, tri[0], tri[1])
+	d2 := d2Sign(pt, tri[1], tri[2])
+	d3 := d2Sign(pt, tri[2], tri[0])
+	has_neg := (d1 < 0) || (d2 < 0) || (d3 < 0)
+	has_pos := (d1 > 0) || (d2 > 0) || (d3 > 0)
+	return !(has_neg && has_pos)
 }
