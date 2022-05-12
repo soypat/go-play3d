@@ -128,7 +128,7 @@ func (n *Node[P, T]) isKDTree() bool {
 	if n == nil {
 		return true
 	}
-	d := n.Point.Dims()
+	d := n.Point.Point().Dims()
 	// Together these define the property of minimal orthogonal bounding.
 	if !(n.isContainedBy(n.Bounding) && planesHaveCoincidentPointsIn(n.Bounding, n, [2][]bool{make([]bool, d), make([]bool, d)})) {
 		return false
@@ -178,7 +178,7 @@ func planesHaveCoincidentPointsIn[P Point, T Comparable[P]](b *Bounding[P], n *N
 
 	var ok = true
 	for i := range tight {
-		for d := 0; d < n.Point.Dims(); d++ {
+		for d := 0; d < n.Point.Point().Dims(); d++ {
 			if c := n.Point.ComparePoint(b.Min, Dim(d)); c == 0 {
 				tight[i][d] = true
 			}

@@ -16,7 +16,7 @@ func pointColor(s string) three.MaterialParameters {
 	// randThickness := rand.Float64()
 	return three.MaterialParameters{
 		Color: three.NewColor(s),
-		Size:  size / 100,
+		Size:  size / 1000,
 		// Size:  10,
 	}
 }

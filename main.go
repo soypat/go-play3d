@@ -15,6 +15,7 @@ import (
 
 //go:generate go run gen_shape.go
 
+// If this is erroring, run go generate to generate the mesh.
 //go:embed shape.tri
 var _gen_shape []byte
 
@@ -59,7 +60,7 @@ func main() {
 	windowWidth := js.Global().Get("innerWidth").Float()
 	windowHeight := js.Global().Get("innerHeight").Float()
 	devicePixelRatio := js.Global().Get("devicePixelRatio").Float()
-	camera = three.NewPerspectiveCamera(70, windowWidth/windowHeight, size/100, size*100)
+	camera = three.NewPerspectiveCamera(70, windowWidth/windowHeight, size/1e5, size*100)
 	camera.SetPosition(three.NewVector3(size/5, size/4, size/4))
 	camera.LookAt(three.NewVector3(0, 0, 0))
 	camera.SetUp(three.NewVector3(0, 1, 0))

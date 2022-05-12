@@ -12,7 +12,7 @@ import (
 )
 
 type Point interface {
-	Len() int
+	Dims() int
 	Component(i Dim) float64
 }
 
@@ -58,8 +58,6 @@ type Comparable[P Point] interface {
 	// Compare(Comparable[P], Dim) float64 // Probably remove this in favor of comparePoint
 	ComparePoint(P, Dim) float64
 	Point() P
-	// Dims returns the number of dimensions described in the Comparable.
-	Dims() int
 
 	// Distance returns the squared Euclidean distance between the receiver and
 	// the parameter.
@@ -87,7 +85,7 @@ func (b *Bounding[P]) Contains(c P) bool {
 	if b == nil {
 		return true
 	}
-	for d := Dim(0); d < Dim(c.Len()); d++ {
+	for d := Dim(0); d < Dim(c.Dims()); d++ {
 		comp := c.Component(d)
 		if comp < b.Min.Component(d) || comp > b.Max.Component(d) {
 			return false
@@ -140,7 +138,7 @@ func build[P Point, T Comparable[P]](p Interface[P, T], plane Dim) *Node[P, T] {
 
 	piv := p.Pivot(plane)
 	d := p.Index(piv)
-	np := (plane + 1) % Dim(d.Dims())
+	np := (plane + 1) % Dim(d.Point().Dims())
 
 	return &Node[P, T]{
 		Point:    d,
@@ -158,7 +156,7 @@ func buildBounded[P Point, T Comparable[P]](p bounder[P, T], plane Dim, bounding
 
 	piv := p.Pivot(plane)
 	d := p.Index(piv)
-	np := (plane + 1) % Dim(d.Dims())
+	np := (plane + 1) % Dim(d.Point().Dims())
 
 	min, max := p.Bounds()
 	return &Node[P, T]{
@@ -198,7 +196,7 @@ func (n *Node[P, T]) insert(c T, d Dim) *Node[P, T] {
 		}
 	}
 
-	d = (n.Plane + 1) % Dim(c.Dims())
+	d = (n.Plane + 1) % Dim(c.Point().Dims())
 	if c.ComparePoint(n.Point.Point(), n.Plane) <= 0 {
 		n.Left = n.Left.insert(c, d)
 	} else {
@@ -249,7 +247,7 @@ func (t *Tree[P, T]) Contains(c P) bool {
 var inf = math.Inf(1)
 
 // Nearest returns the nearest value to the query and the distance between them.
-func (t *Tree[P, T]) Nearest(q T) (nearest T, dist2 float64) {
+func (t *Tree[P, T]) Nearest(q P) (nearest T, dist2 float64) {
 	if t.Root == nil {
 		return nearest, inf
 	}
@@ -260,13 +258,15 @@ func (t *Tree[P, T]) Nearest(q T) (nearest T, dist2 float64) {
 	return n.Point, dist
 }
 
-func (n *Node[P, T]) search(q T, dist float64) (*Node[P, T], float64) {
+func (n *Node[P, T]) search(q P, dist float64) (*Node[P, T], float64) {
 	if n == nil {
 		return nil, inf
 	}
-
-	c := q.ComparePoint(n.Point.Point(), n.Plane)
-	dist = math.Min(dist, q.Distance(n.Point.Point()))
+	c := -n.Point.ComparePoint(q, n.Plane)
+	// c := q.ComparePoint(n.Point.Point(), n.Plane)
+	dist = math.Min(dist, n.Point.Distance(q))
+	// dist = math.Min(dist, q.Distance(n.Point.Point()))
+	// dist = math.Min(dist, q.Distance(n.Point.Point()))
 
 	bn := n
 	if c <= 0 {

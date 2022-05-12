@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
 
 type sdfTriangle struct {
-	Vertices [3]int // Indices to vertices
-	N        Vec    // Face normal
-	Ne       [3]Vec // Edge Normals
+	Vertices [3]int     // Indices to vertices
+	C        Vec        // Centroid
+	N        Vec        // Face normal
+	T        *Transform // Jones transformation matrix for distance calculation
+	InvT     *Transform // inverse jones transform
+	m        *mesh
 }
 
 type sdfVertex struct {
@@ -21,17 +25,24 @@ type mesh struct {
 	vertices  []sdfVertex
 	triangles []sdfTriangle
 	// access toedge pseudo normals using vertex index.
+	// Stored with lower index first.
 	edgeNorm map[[2]int]Vec
 }
 
 func newMesh(triangles []Triangle, tol float64) mesh {
 	bb := Box{Elem(math.MaxFloat64), Elem(-math.MaxFloat64)}
+	minDist2 := math.MaxFloat64
 	for i := range triangles {
-		for _, edge := range triangles[i] {
-			bb.Min = minElem(bb.Min, edge)
-			bb.Max = maxElem(bb.Max, edge)
+		for j, vert := range triangles[i] {
+			// Calculate bounding box
+			bb.Min = minElem(bb.Min, vert)
+			bb.Max = maxElem(bb.Max, vert)
+			// Calculate minimum side
+			vert2 := triangles[i][(j+1)%3]
+			minDist2 = math.Min(minDist2, Norm2(Sub(vert2, vert)))
 		}
 	}
+	fmt.Println(math.Sqrt(minDist2))
 	m := mesh{
 		triangles: make([]sdfTriangle, len(triangles)),
 		edgeNorm:  make(map[[2]int]Vec),
@@ -48,7 +59,15 @@ func newMesh(triangles []Triangle, tol float64) mesh {
 	ri := 1 / tol
 	for i, tri := range triangles {
 		norm := tri.Normal()
-		sdfT := sdfTriangle{N: Scale(2*math.Pi, norm)}
+		Tform := jonesTransform(tri)
+		InvT := Tform.Inverse()
+		sdfT := sdfTriangle{
+			N:    Scale(2*math.Pi, norm),
+			C:    tri.Centroid(),
+			T:    &Tform,
+			InvT: &InvT,
+			m:    &m,
+		}
 		for j, vert := range triangles[i] {
 			// Scale vert to be integer in resolution-space.
 			vi := R3ToI(Scale(ri, vert))
@@ -71,10 +90,30 @@ func newMesh(triangles []Triangle, tol float64) mesh {
 		// Calculate edge pseudo normals.
 		for j := range sdfT.Vertices {
 			edge := [2]int{sdfT.Vertices[j], sdfT.Vertices[(j+1)%3]}
+			if edge[0] > edge[1] {
+				edge[0], edge[1] = edge[1], edge[0]
+			}
 			m.edgeNorm[edge] = Add(m.edgeNorm[edge], Scale(math.Pi, norm))
 		}
 	}
 	return m
+}
+
+func (t sdfTriangle) Triangle() Triangle {
+	vt := t.Vertices
+	return Triangle{
+		t.m.vertices[vt[0]].V,
+		t.m.vertices[vt[1]].V,
+		t.m.vertices[vt[2]].V,
+	}
+}
+
+func (m mesh) Triangles() []Triangle {
+	tri := make([]Triangle, len(m.triangles))
+	for i := range tri {
+		tri[i] = m.triangles[i].Triangle()
+	}
+	return tri
 }
 
 // cache3 implements a 3 dimensional distance cache to avoid repeated evaluations.
