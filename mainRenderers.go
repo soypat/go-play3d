@@ -1,6 +1,10 @@
+//go:build js
+
 package main
 
 import (
+	"fmt"
+
 	"github.com/soypat/three"
 )
 
@@ -71,6 +75,36 @@ func linesObj(edges [][2]Vec, material three.MaterialParameters) three.Object3D 
 		e32[eOffset+4] = float32(edge[1].Y)
 		e32[eOffset+5] = float32(edge[1].Z)
 	}
+	geom := three.NewBufferGeometry()
+	geom.SetAttribute("position", three.NewBufferAttribute(e32, 3))
+	lines := three.NewLineSegments(geom, three.NewLineBasicMaterial(&material))
+	return lines
+}
+
+func boxesObj(boxes []Box, material three.MaterialParameters) three.Object3D {
+	// We need 4+4+4 lines to define a box
+	// and need 2 points to define a line
+	// and each point is defined by 3 numbers (X,Y,Z data)
+	e32 := make([]float32, 12*6*len(boxes))
+	edges := [12][2]int{
+		{0, 1}, {1, 2}, {2, 3}, {3, 0},
+		{4, 5}, {5, 6}, {6, 7}, {7, 4},
+		{0, 4}, {1, 5}, {2, 6}, {3, 7},
+	}
+	for it, box := range boxes {
+		vertices := box.Vertices()
+		boxOffset := it * 12 * 6
+		for i, verts := range edges {
+			eOffset := boxOffset + 6*i
+			e32[eOffset] = float32(vertices[verts[0]].X)
+			e32[eOffset+1] = float32(vertices[verts[0]].Y)
+			e32[eOffset+2] = float32(vertices[verts[0]].Z)
+			e32[eOffset+3] = float32(vertices[verts[1]].X)
+			e32[eOffset+4] = float32(vertices[verts[1]].Y)
+			e32[eOffset+5] = float32(vertices[verts[1]].Z)
+		}
+	}
+	fmt.Println(e32)
 	geom := three.NewBufferGeometry()
 	geom.SetAttribute("position", three.NewBufferAttribute(e32, 3))
 	lines := three.NewLineSegments(geom, three.NewLineBasicMaterial(&material))

@@ -34,6 +34,13 @@ func (t Triangle) Circumradius() float64 {
 	return Norm2(t.toCircumcenter())
 }
 
+func (t Triangle) Bounds() Box {
+	return Box{
+		Min: minElem(t[0], minElem(t[1], t[2])),
+		Max: maxElem(t[0], maxElem(t[1], t[2])),
+	}
+}
+
 func (t Triangle) toCircumcenter() Vec {
 	// from https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
 	// N = ∥c−a∥2[(b−a)×(c−a)]×(b−a)+∥b−a∥2[(c−a)×(b−a)]×(c−a)
@@ -76,7 +83,7 @@ func (t Triangle) Closest(p Vec) Vec {
 	pxy := Tform.ApplyPosition(p)
 	txy := Tform.ApplyTriangle(t)
 	// get point on triangle closest to point
-	ptxy := closestOnTriangle2(pxy.lower(), txy.lower())
+	ptxy, _ := closestOnTriangle2(pxy.lower(), txy.lower())
 	inv := Tform.Inverse()
 	return inv.ApplyPosition(Vec{ptxy.X, ptxy.Y, 0})
 }
@@ -131,4 +138,46 @@ func (t Triangle) lower() [3]r2.Vec {
 		{X: t[1].X, Y: t[1].Y},
 		{X: t[2].X, Y: t[2].Y},
 	}
+}
+
+// Returns a transformation for a triangle so that:
+//  - the triangle's first edge (t_0,t_1) is on the X axis
+//  - the triangle's first vertex t_0 is at the origin
+//  - the triangle's last vertex t_2 is in the XY plane.
+func jonesTransform(t Triangle) Transform {
+	// Mark W. Jones "3D Distance from a Point to a Triangle"
+	// Department of Computer Science, University of Wales Swansea
+	p1p2, _, _ := t.sides()
+	Tform := rotateToVec(p1p2, Vec{X: 1})
+	Tdis := Translate(Scale(-1, t[0]))
+	Tform = Tform.Mul(Tdis)
+	t = Tform.ApplyTriangle(t)
+	// rotate third point so that it is on yz plane
+	t[2].X = 0 // eliminate X component.
+	alpha := math.Acos(Cos(Vec{Y: 1}, t[2]))
+	Trot := Rotate3d(Vec{X: 1}, -alpha)
+	Tform = Trot.Mul(Tform)
+	return Tform
+}
+
+func closestOnTriangle2(p r2.Vec, tri [3]r2.Vec) (pointOnTriangle r2.Vec, feature triangleFeature) {
+	if inTriangle(p, tri) {
+		return p, featureFace
+	}
+	minDist := math.MaxFloat64
+	for j := range tri {
+		edge := [2]r2.Vec{{X: tri[j].X, Y: tri[j].Y}, {X: tri[(j+1)%3].X, Y: tri[(j+1)%3].Y}}
+		distance, gotFeat := distToLine(p, edge)
+		d2 := r2.Norm2(distance)
+		if d2 < minDist {
+			if gotFeat < 2 {
+				feature = triangleFeature(j+gotFeat) % 3
+			} else {
+				feature = featureE0 + triangleFeature(j)%3
+			}
+			minDist = d2
+			pointOnTriangle = r2.Sub(p, distance)
+		}
+	}
+	return pointOnTriangle, feature
 }

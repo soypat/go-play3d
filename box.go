@@ -23,17 +23,25 @@ func (a Box) Center() Vec {
 // Vertices returns a slice of the 8 vertices
 // corresponding to each of the Box's corners.
 //
-// Vertex order is unspecified.
+// Vertex ordering between 0-3 and 4-7 outline
+// 2D boxes in the XY plane where vertices 0-3 are in Z=Box.Min.Z.
+// One can then construct the edges with indices for the
+// return value of Vertices:
+//  edges := [12][2]int{
+//   {0, 1}, {1, 2}, {2, 3}, {3, 0},
+//   {4, 5}, {5, 6}, {6, 7}, {7, 4},
+//   {0, 4}, {1, 5}, {2, 6}, {3, 7},
+//  }
 func (a Box) Vertices() []Vec {
 	return []Vec{
-		a.Min,
-		{X: a.Min.X, Y: a.Min.Y, Z: a.Max.Z},
-		{X: a.Min.X, Y: a.Max.Y, Z: a.Min.Z},
-		{X: a.Min.X, Y: a.Max.Y, Z: a.Max.Z},
-		{X: a.Max.X, Y: a.Min.Y, Z: a.Min.Z},
-		{X: a.Max.X, Y: a.Min.Y, Z: a.Max.Z},
-		{X: a.Max.X, Y: a.Max.Y, Z: a.Min.Z},
-		a.Max,
+		a.Min,                                // 0
+		{X: a.Max.X, Y: a.Min.Y, Z: a.Min.Z}, // 1
+		{X: a.Max.X, Y: a.Max.Y, Z: a.Min.Z}, // 2
+		{X: a.Min.X, Y: a.Max.Y, Z: a.Min.Z}, // 3
+		{X: a.Min.X, Y: a.Min.Y, Z: a.Max.Z}, // 4
+		{X: a.Max.X, Y: a.Min.Y, Z: a.Max.Z}, // 5
+		a.Max,                                // 6
+		{X: a.Min.X, Y: a.Max.Y, Z: a.Max.Z}, // 7
 	}
 }
 

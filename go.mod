@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/soypat/gwasm v0.0.11
-	github.com/soypat/sdf v0.0.0-20220509224013-361f63c8a452
+	github.com/soypat/sdf v0.0.0-20220512170028-6370cb4667fe
 	github.com/soypat/sdf3ui v0.0.0-20220509030550-11be30347b1a
 	github.com/soypat/three v0.0.0-20220501183759-e2d2208ad9b5
 	golang.org/x/exp v0.0.0-20191002040644-a1355ae1e2c3
