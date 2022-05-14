@@ -13,7 +13,7 @@ import (
 	"github.com/soypat/three"
 )
 
-//go:generate go run gen_shape.go
+//go:generate go run .
 
 // If this is erroring, run go generate to generate the mesh.
 //go:embed shape.tri
@@ -27,9 +27,9 @@ func genShape() []Triangle {
 	tri := make([]Triangle, len(triangles))
 	for i := range tri {
 		tri[i] = [3]Vec{
-			Vec(triangles[i].V[0]),
-			Vec(triangles[i].V[1]),
-			Vec(triangles[i].V[2]),
+			Vec(triangles[i][0]),
+			Vec(triangles[i][1]),
+			Vec(triangles[i][2]),
 		}
 	}
 	return tri

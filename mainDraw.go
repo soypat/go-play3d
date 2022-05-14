@@ -47,11 +47,14 @@ func makeObjects() three.Object3D {
 	lookup := Scale(1.1, Unit(Vec{X: rng.Float64(), Y: rng.Float64(), Z: rng.Float64()}))
 	nearbySDF, _ := tree.Nearest(kdPoint{lookup})
 	nearby := nearbySDF.Triangle()
+	grp.Add(triangleOutlines(icosphere(5), lineColor("green")))
+	grp.Add(three.NewAxesHelper(0.5))
+	return grp
 	grp.Add(triangleOutlines([]Triangle{nearby.Add(Scale(0.05, nearbySDF.N))}, lineColor("gold")))
 	grp.Add(pointsObj([]Vec{lookup}, pointColor("red")))
 	// grp.Add(linesObj(Nes, lineColor("gold")))
 	grp.Add(boxesObj([]Box{nearby.Bounds()}, lineColor("white")))
-	grp.Add(three.NewAxesHelper(2))
+
 	// grp.Add(triangleOutlines(tris, lineColor("blue")))
 	grp.Add(triangleOutlines(m.Triangles(), lineColor("darkgreen")))
 	_, _ = tri1, tri2

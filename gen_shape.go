@@ -11,7 +11,7 @@ import (
 	"github.com/soypat/sdf3ui/uirender"
 )
 
-//go:generate go run gen_shape.go
+//go:generate go run .
 
 func main() {
 	const quality = 20

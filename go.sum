@@ -62,6 +62,8 @@ github.com/soypat/sdf v0.0.0-20220509224013-361f63c8a452 h1:iP8LkGyzmG/DwtsjTHWh
 github.com/soypat/sdf v0.0.0-20220509224013-361f63c8a452/go.mod h1:exC8txlA0OG1ge+QpDsQbGCBWeQeUnmMzkD9P1F6DI4=
 github.com/soypat/sdf v0.0.0-20220512170028-6370cb4667fe h1:BwGYyvYd7dEAMhPFdcYHaON7cGjH2rTuGv9BJZzn9Og=
 github.com/soypat/sdf v0.0.0-20220512170028-6370cb4667fe/go.mod h1:exC8txlA0OG1ge+QpDsQbGCBWeQeUnmMzkD9P1F6DI4=
+github.com/soypat/sdf v0.0.0-20220513225340-a502593fd97a h1:RfjL99b9OFIlUU89LYQ4J9YruxxKmSwd0xvXMD9krj0=
+github.com/soypat/sdf v0.0.0-20220513225340-a502593fd97a/go.mod h1:W10ECnWd0QTj8Gvut1zxW3JvitU9++xTj2qumm71Muw=
 github.com/soypat/sdf3ui v0.0.0-20220509030550-11be30347b1a h1:h9VAvaGtNiaTxV9CLhJEqv87M31jwLl1dBQWMEMbR4A=
 github.com/soypat/sdf3ui v0.0.0-20220509030550-11be30347b1a/go.mod h1:30VAQrEL2QmNqQmGqoefXJgL1KzCJvet3smSghhhIVY=
 github.com/soypat/three v0.0.0-20220501183759-e2d2208ad9b5 h1:JyaeBGODhYhZa/Np9jdeZAlhioS38ZVCmgNDqgWycFE=
