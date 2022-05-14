@@ -91,9 +91,6 @@ func (t *kdTriangle) Bounds() (min, max kdPoint) {
 }
 
 func (t *kdTriangle) Distance(p kdPoint) float64 {
-	if t == nil || t.T == nil {
-		panic("bad tri")
-	}
 	pxy := t.T.ApplyPosition(p.Vec)
 	txy := t.T.ApplyTriangle(t.Triangle())
 	// get point on triangle closest to point
