@@ -5,6 +5,7 @@ package main
 import (
 	"log"
 	"os"
+	"unsafe"
 
 	"github.com/soypat/sdf/form3"
 	"github.com/soypat/sdf/render"
@@ -22,8 +23,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	model, _ := render.RenderAll(render.NewOctreeRenderer(sp, quality))
+	model := icosphere(3)
+	// model, _ := render.RenderAll(render.NewOctreeRenderer(sp, quality))
 	fp.Close()
-	m := NewSDFMesh(model)
+	// m := NewGonumSDFMesh(convertToRenderTriangles(model))
+	m := NewSDFMesh(convertToRenderTriangles(model))
 	render.CreateSTL("sdf.stl", render.NewOctreeRenderer(m, 20))
+}
+
+func convertToRenderTriangles(t []Triangle) []render.Triangle3 {
+	return *(*[]render.Triangle3)(unsafe.Pointer(&t))
+	// c := make([]render.Triangle3, len(t))
+	// for i := range t {
+	// 	c[i] = render.Triangle3(t[i])
+	// }
+	// return c
 }

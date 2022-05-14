@@ -15,14 +15,16 @@ func subdivideEdge(lookup map[edgeIdx]int, vertices []Vec, first, second int) (i
 	}
 	vertIdx, vertExists := lookup[key]
 	if !vertExists {
-		// If vertex not already subdivided add to lookup table.
-		vertIdx = len(vertices)
+		// If edge not already subdivided add
+		// new dividing vertex to lookup table.
+		edge0 := vertices[first]
+		edge1 := vertices[second]
+		point := Unit(Add(edge0, edge1)) // vertex at a normalized position.
+		vertices = append(vertices, point)
+		vertIdx = len(vertices) - 1
 		lookup[key] = vertIdx
 	}
-	edge0 := vertices[first]
-	edge1 := vertices[second]
-	point := Unit(Add(edge0, edge1)) // vertex at a normalized position.
-	return len(vertices), append(vertices, point)
+	return vertIdx, vertices
 }
 
 func subdivide(vertices []Vec, triangles [][3]int) ([]Vec, [][3]int) {
@@ -78,10 +80,9 @@ func icosahedron(radius float64) (vertices []Vec, triangles [][3]int) {
 			{-X, N, Z}, {X, N, Z}, {-X, N, -Z}, {X, N, -Z},
 			{N, Z, X}, {N, Z, -X}, {N, -Z, X}, {N, -Z, -X},
 			{Z, X, N}, {-Z, X, N}, {Z, -X, N}, {-Z, -X, N},
-		}, [][3]int{
-			{0, 4, 1}, {0, 9, 4}, {9, 5, 4}, {4, 5, 8}, {4, 8, 1},
-			{8, 10, 1}, {8, 3, 10}, {5, 3, 8}, {5, 2, 3}, {2, 7, 3},
-			{7, 10, 3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1, 6},
-			{6, 1, 10}, {9, 0, 11}, {9, 11, 2}, {9, 2, 5}, {7, 2, 11},
-		}
+		}, [][3]int{{0, 1, 4}, {0, 4, 9}, {9, 4, 5}, {4, 8, 5},
+			{4, 1, 8}, {8, 1, 10}, {8, 10, 3}, {5, 8, 3},
+			{5, 3, 2}, {2, 3, 7}, {7, 3, 10}, {7, 10, 6},
+			{7, 6, 11}, {11, 6, 0}, {0, 6, 1}, {6, 10, 1},
+			{9, 11, 0}, {9, 2, 11}, {9, 5, 2}, {7, 11, 2}}
 }

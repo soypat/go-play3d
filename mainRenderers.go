@@ -25,6 +25,16 @@ func pointColor(s string) three.MaterialParameters {
 	}
 }
 
+func triangleNormalsObj(length float64, t []Triangle, material three.MaterialParameters) three.Object3D {
+	norms := make([][2]Vec, len(t))
+	for i := range t {
+		c := t[i].Centroid()
+		norms[i][0] = c
+		norms[i][1] = Add(c, Scale(length, Unit(t[i].Normal())))
+	}
+	return linesObj(norms, material)
+}
+
 func triangleOutlines(t []Triangle, material three.MaterialParameters) three.Object3D {
 	// We have 3 edges to draw per triangle
 	// and need 2 points to define an edge
