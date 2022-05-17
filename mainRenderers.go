@@ -3,8 +3,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/soypat/three"
 )
 
@@ -114,7 +112,6 @@ func boxesObj(boxes []Box, material three.MaterialParameters) three.Object3D {
 			e32[eOffset+5] = float32(vertices[verts[1]].Z)
 		}
 	}
-	fmt.Println(e32)
 	geom := three.NewBufferGeometry()
 	geom.SetAttribute("position", three.NewBufferAttribute(e32, 3))
 	lines := three.NewLineSegments(geom, three.NewLineBasicMaterial(&material))

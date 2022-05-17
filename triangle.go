@@ -6,6 +6,7 @@ package main
 
 import (
 	"math"
+	"math/rand"
 
 	"gonum.org/v1/gonum/spatial/r2"
 )
@@ -39,6 +40,18 @@ func (t Triangle) Bounds() Box {
 		Min: minElem(t[0], minElem(t[1], t[2])),
 		Max: maxElem(t[0], maxElem(t[1], t[2])),
 	}
+}
+
+// randomPoint picks a random point on triangle.
+func (t Triangle) randomPoint(rnd *rand.Rand) Vec {
+	// See https://math.stackexchange.com/questions/538458/how-to-sample-points-on-a-triangle-surface-in-3d.
+	a, b := rnd.Float64(), rnd.Float64()
+	if a+b >= 1 {
+		// Reduce from the quadrilateral case
+		a = 1 - a
+		b = 1 - b
+	}
+	return Add(Add(t[0], Scale(b, Sub(t[2], t[0]))), Scale(a, Sub(t[1], t[0])))
 }
 
 func (t Triangle) toCircumcenter() Vec {

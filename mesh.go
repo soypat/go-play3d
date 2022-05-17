@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -42,7 +41,6 @@ func newMesh(triangles []Triangle, tol float64) mesh {
 			minDist2 = math.Min(minDist2, Norm2(Sub(vert2, vert)))
 		}
 	}
-	fmt.Println(math.Sqrt(minDist2))
 	m := mesh{
 		triangles: make([]sdfTriangle, len(triangles)),
 		edgeNorm:  make(map[[2]int]Vec),
