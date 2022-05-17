@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 
+	"gonum.org/v1/gonum/num/quat"
 	"gonum.org/v1/gonum/spatial/r2"
 )
 
@@ -93,12 +94,12 @@ func (t Triangle) Area() float64 {
 
 func (t Triangle) Closest(p Vec) Vec {
 	Tform := jonesTransform(t)
-	pxy := Tform.ApplyPosition(p)
+	pxy := Tform.Transform(p)
 	txy := Tform.ApplyTriangle(t)
 	// get point on triangle closest to point
 	ptxy, _ := closestOnTriangle2(pxy.lower(), txy.lower())
-	inv := Tform.Inverse()
-	return inv.ApplyPosition(Vec{ptxy.X, ptxy.Y, 0})
+	inv := Tform.Inv()
+	return inv.Transform(Vec{ptxy.X, ptxy.Y, 0})
 }
 
 // Centroid returns the intersection of the three medians of the triangle
@@ -161,16 +162,29 @@ func jonesTransform(t Triangle) Transform {
 	// Mark W. Jones "3D Distance from a Point to a Triangle"
 	// Department of Computer Science, University of Wales Swansea
 	p1p2, _, _ := t.sides()
-	Tform := rotateToVec(p1p2, Vec{X: 1})
-	Tdis := Translate(Scale(-1, t[0]))
-	Tform = Tform.Mul(Tdis)
-	t = Tform.ApplyTriangle(t)
-	// rotate third point so that it is on yz plane
-	t[2].X = 0 // eliminate X component.
-	alpha := math.Acos(Cos(Vec{Y: 1}, t[2]))
-	Trot := Rotate3d(Vec{X: 1}, -alpha)
-	Tform = Trot.Mul(Tform)
-	return Tform
+	rot1 := rotateBetween(p1p2, Vec{X: 1})
+	// a := ComposeTransform(Vec{}, Vec{1, 1, 1}, rot1)
+	v2 := rot1.Rotate(t[2])
+	rot2 := rotateBetween(v2, Vec{X: v2.X, Y: v2.Y})
+	// rot2 := NewRotation(Cos(v2, Vec{Y: 1}), Vec{X: -1})
+	rot := Rotation(quat.Mul(quat.Number(rot2), quat.Number(rot1)))
+	offset := rot.Rotate(t[0])
+	// fmt.Println(p1p2, v2, rot2.Rotate(v2))
+
+	return ComposeTransform(Scale(-1, offset), Vec{1, 1, 1}, rot)
+	// Tform := rotateToVec(p1p2, Vec{X: 1})
+	// Tdis := Tform.Translate()
+	// // Tdis := Translate(Scale(-1, t[0]))
+	// Tform = Tform.Mul(Tdis)
+	// t = Tform.ApplyTriangle(t)
+	// // rotate third point so that it is on yz plane
+	// t[2].X = 0 // eliminate X component.
+	// alpha := math.Acos(Cos(Vec{Y: 1}, t[2]))
+	// rot := NewRotation(-alpha, Vec{X: 1})
+	// Trot := ComposeTransform(Vec{}, Vec{1, 1, 1}, rot)
+	// // Trot := Rotate3d(Vec{X: 1}, -alpha)
+	// Tform = Trot.Mul(Tform)
+	// return Tform
 }
 
 func closestOnTriangle2(p r2.Vec, tri [3]r2.Vec) (pointOnTriangle r2.Vec, feature triangleFeature) {

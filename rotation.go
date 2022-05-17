@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"gonum.org/v1/gonum/num/quat"
@@ -55,4 +56,60 @@ func (r Rotation) isIdentity() bool {
 
 func raise(p Vec) quat.Number {
 	return quat.Number{Imag: p.X, Jmag: p.Y, Kmag: p.Z}
+}
+
+func rotateBetween(u, v Vec) Rotation {
+	const tol = 1e-8
+	kct := Dot(u, v)
+	k := math.Sqrt(Norm2(u) * Norm2(v))
+	if math.Abs(kct/k+1) < tol {
+		//180 degree rotation
+		return Rotation(raise(orthogonal(u)))
+	}
+	q := raise(Cross(u, v))
+	q.Real = k + kct
+	return Rotation(quat.Scale(1/quat.Abs(q), q))
+
+}
+
+// The orthogonal function returns any vector orthogonal to the given vector.
+// This implementation uses the cross product with the most orthogonal basis vector.
+func orthogonal(v Vec) Vec {
+	fmt.Println("orthogonal called")
+	x := math.Abs(v.X)
+	y := math.Abs(v.Y)
+	z := math.Abs(v.Z)
+	other := Vec{Z: 1}
+	if x < y {
+		if x < z {
+			other = Vec{X: 1}
+		}
+		other = Vec{Z: 1}
+	}
+	if y < z {
+		other = Vec{Y: 1}
+	}
+	return Cross(v, other)
+}
+
+func vecApproxEqual(a, b Vec, tol float64) bool {
+	return math.Abs(a.X-b.X) < tol &&
+		math.Abs(a.Y-b.Y) < tol &&
+		math.Abs(a.Z-b.Z) < tol
+}
+
+func rotateOntoVecHalfway(u, v Vec) Rotation {
+	// Vector half way solution.
+	u = Unit(u)
+	v = Unit(v)
+	if vecApproxEqual(u, v, 1e-8) {
+		return NewRotation(0, Vec{})
+	}
+	if vecApproxEqual(Scale(-1, u), v, 1e-8) {
+		return Rotation(raise(orthogonal(u)))
+	}
+	half := Unit(Add(u, v))
+	raised := raise(Cross(u, half))
+	raised.Real = Dot(u, half)
+	return Rotation(raised)
 }

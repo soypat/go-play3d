@@ -91,15 +91,15 @@ func (t *kdTriangle) Bounds() (min, max kdPoint) {
 }
 
 func (t *kdTriangle) Distance(p kdPoint) float64 {
-	pxy := t.T.ApplyPosition(p.Vec)
+	pxy := t.T.Transform(p.Vec)
 	txy := t.T.ApplyTriangle(t.Triangle())
 	// get point on triangle closest to point
 	ptxy, feat := closestOnTriangle2(pxy.lower(), txy.lower())
 	t.lastDist = feat
 
-	inv := t.T.Inverse()
+	inv := t.T.Inv()
 	// Transform point on triangle back to 3D
-	t.lastClosest = inv.ApplyPosition(Vec{ptxy.X, ptxy.Y, 0})
+	t.lastClosest = inv.Transform(Vec{ptxy.X, ptxy.Y, 0})
 	return Norm2(Sub(p.Vec, t.lastClosest))
 }
 

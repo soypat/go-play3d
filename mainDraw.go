@@ -27,7 +27,7 @@ func makeObjects() three.Object3D {
 	grp.Add(triangleOutlines([]Triangle{normie}, lineColor("cyan")))
 	grp.Add(triangleOutlines([]Triangle{normieT}, lineColor("navy")))
 	grp.Add(three.NewAxesHelper(0.5))
-	fmt.Println("worstT:", worstT)
+	// fmt.Println("worstT:", worstT)
 	return grp
 	var tri1, tri2 three.Object3D
 	tris := icosphere(2)
