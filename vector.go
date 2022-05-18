@@ -193,3 +193,8 @@ func (v Veci) Add(a Veci) Veci {
 func R3ToI(v Vec) Veci {
 	return Veci{int(v.X), int(v.Y), int(v.Z)}
 }
+
+func randomVec(scale float64, rnd *rand.Rand) Vec {
+	scale *= 2
+	return Vec{X: scale * (rnd.Float64() - 0.5), Y: scale * (rnd.Float64() - 0.5), Z: scale * (rnd.Float64() - 0.5)}
+}

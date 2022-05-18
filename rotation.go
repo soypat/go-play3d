@@ -39,6 +39,12 @@ func NewRotation(alpha float64, axis Vec) Rotation {
 	return Rotation(q)
 }
 
+// Then combines rotations r and q such that
+// q follows r.
+func (r Rotation) Then(q Rotation) Rotation {
+	return Rotation(quat.Mul(quat.Number(r), quat.Number(q)))
+}
+
 // Rotate returns p rotated according to the parameters used to construct
 // the receiver.
 func (r Rotation) Rotate(p Vec) Vec {
@@ -48,6 +54,13 @@ func (r Rotation) Rotate(p Vec) Vec {
 	qq := quat.Number(r)
 	pp := quat.Mul(quat.Mul(qq, raise(p)), quat.Conj(qq))
 	return Vec{X: pp.Imag, Y: pp.Jmag, Z: pp.Kmag}
+}
+
+func (r Rotation) RotateTriangle(t Triangle) Triangle {
+	for i := range t {
+		t[i] = r.Rotate(t[i])
+	}
+	return t
 }
 
 func (r Rotation) isIdentity() bool {

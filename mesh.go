@@ -57,7 +57,7 @@ func newMesh(triangles []Triangle, tol float64) mesh {
 	ri := 1 / tol
 	for i, tri := range triangles {
 		norm := tri.Normal()
-		Tform := jonesTransform(tri)
+		Tform := canalisTransform(tri)
 		InvT := Tform.Inv()
 		sdfT := sdfTriangle{
 			N:    Scale(2*math.Pi, norm),

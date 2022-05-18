@@ -50,10 +50,10 @@ func NewTransform(a []float64) Transform {
 		panic("Transform is initialized with 16 values")
 	}
 	return Transform{
-		d00: a[0], x01: a[1], x02: a[2], x03: a[3],
-		x10: a[4], d11: a[5], x12: a[6], x13: a[7],
-		x20: a[8], x21: a[9], d22: a[10], x23: a[11],
-		x30: a[12], x31: a[13], x32: a[14], d33: a[15],
+		d00: a[0] - 1, x01: a[1], x02: a[2], x03: a[3],
+		x10: a[4], d11: a[5] - 1, x12: a[6], x13: a[7],
+		x20: a[8], x21: a[9], d22: a[10] - 1, x23: a[11],
+		x30: a[12], x31: a[13], x32: a[14], d33: a[15] - 1,
 	}
 }
 

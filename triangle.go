@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -93,12 +94,15 @@ func (t Triangle) Area() float64 {
 }
 
 func (t Triangle) Closest(p Vec) Vec {
-	Tform := jonesTransform(t)
+	Tform := canalisTransform(t)
 	pxy := Tform.Transform(p)
 	txy := Tform.ApplyTriangle(t)
+
 	// get point on triangle closest to point
 	ptxy, _ := closestOnTriangle2(pxy.lower(), txy.lower())
+	fmt.Println("big problem", Tform)
 	inv := Tform.Inv()
+
 	return inv.Transform(Vec{ptxy.X, ptxy.Y, 0})
 }
 
@@ -154,11 +158,31 @@ func (t Triangle) lower() [3]r2.Vec {
 	}
 }
 
+// canalisTransform courtesy of Agustin Canalis (acanalis).
+func canalisTransform(t Triangle) Transform {
+	u2 := Sub(t[1], t[0])
+	u3 := Sub(t[2], t[0])
+
+	xc := Unit(u2)
+	yc := Sub(u3, Scale(Dot(xc, u3), xc)) // t[2] but no X component
+	zc := Cross(xc, yc)
+	yc = Unit(yc)
+	T := NewTransform([]float64{
+		xc.X, xc.Y, xc.Z, 0,
+		yc.X, yc.Y, yc.Z, 0,
+		zc.X, zc.Y, zc.Z, 0,
+		0, 0, 0, 1,
+	})
+	t0T := T.Transform(t[0])
+	return T.Translate(Scale(-1, t0T))
+}
+
 // Returns a transformation for a triangle so that:
 //  - the triangle's first edge (t_0,t_1) is on the X axis
 //  - the triangle's first vertex t_0 is at the origin
 //  - the triangle's last vertex t_2 is in the XY plane.
-func jonesTransform(t Triangle) Transform {
+func jones2Transform(t Triangle) Transform {
+
 	// Mark W. Jones "3D Distance from a Point to a Triangle"
 	// Department of Computer Science, University of Wales Swansea
 	p1p2, _, _ := t.sides()

@@ -54,7 +54,7 @@ func TestTriangle2Closest(t *testing.T) {
 	}
 }
 
-func TestJonesTransform(t *testing.T) {
+func TestCanalisTransform(t *testing.T) {
 	const tol = 1e-12
 	ico := icosphere(2)
 	// rnd := rand.New(rand.NewSource(1))
@@ -66,7 +66,7 @@ func TestJonesTransform(t *testing.T) {
 	var worstAreaMismatch, worstZmismatch float64
 	var worstArea, worstZ Triangle
 	for _, tri := range ico {
-		T := jonesTransform(tri)
+		T := canalisTransform(tri)
 		triT := T.ApplyTriangle(tri)
 		wantArea := tri.Area()
 		gotArea := triT.Area()
