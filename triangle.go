@@ -165,8 +165,9 @@ func canalisTransform(t Triangle) Transform {
 
 	xc := Unit(u2)
 	yc := Sub(u3, Scale(Dot(xc, u3), xc)) // t[2] but no X component
-	zc := Cross(xc, yc)
 	yc = Unit(yc)
+	zc := Cross(xc, yc)
+
 	T := NewTransform([]float64{
 		xc.X, xc.Y, xc.Z, 0,
 		yc.X, yc.Y, yc.Z, 0,

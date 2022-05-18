@@ -26,8 +26,8 @@ func main() {
 	model := icosphere(3)
 	// model, _ := render.RenderAll(render.NewOctreeRenderer(sp, quality))
 	fp.Close()
-	// m := NewGonumSDFMesh(convertToRenderTriangles(model))
-	m := NewSDFMesh(convertToRenderTriangles(model))
+	m := NewGonumSDFMesh(convertToRenderTriangles(model))
+	// m := NewSDFMesh(convertToRenderTriangles(model))
 	render.CreateSTL("sdf.stl", render.NewOctreeRenderer(m, 20))
 }
 
