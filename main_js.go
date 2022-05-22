@@ -13,6 +13,9 @@ import (
 	"github.com/soypat/three"
 )
 
+// See mainPlay.go for makeObjects drawing function, which simplifies
+// user interaction.
+
 //go:generate go run .
 
 // If this is erroring, run go generate to generate the mesh.
