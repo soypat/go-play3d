@@ -6,6 +6,17 @@ import (
 	"github.com/soypat/three"
 )
 
+func phongMaterial(color string, opacity float64) three.MeshPhongMaterial {
+	transparent := opacity < 1
+	return three.NewMeshPhongMaterial(&three.MaterialParameters{
+		Color:       three.NewColor(color),
+		Transparent: transparent,
+		Opacity:     opacity,
+		Specular:    three.NewColor("grey"),
+		Shading:     three.SmoothShading,
+	})
+}
+
 func lineColor(s string) three.MaterialParameters {
 	// randThickness := rand.Float64()
 	return three.MaterialParameters{
@@ -33,7 +44,7 @@ func triangleNormalsObj(length float64, t []Triangle, material three.MaterialPar
 	return linesObj(norms, material)
 }
 
-func triangleOutlines(t []Triangle, material three.MaterialParameters) three.Object3D {
+func triangleOutlineGeometry(t []Triangle) three.BufferGeometry {
 	// We have 3 edges to draw per triangle
 	// and need 2 points to define an edge
 	// and each point is defined by 3 numbers (X,Y,Z data)
@@ -53,8 +64,50 @@ func triangleOutlines(t []Triangle, material three.MaterialParameters) three.Obj
 	}
 	geom := three.NewBufferGeometry()
 	geom.SetAttribute("position", three.NewBufferAttribute(e32, 3))
-	lines := three.NewLineSegments(geom, three.NewLineBasicMaterial(&material))
-	return lines
+	return geom
+}
+
+func triangleGeometry(t []Triangle, color func(i int) [3]float32) three.BufferGeometry {
+	if color == nil {
+		color = func(int) [3]float32 { return [3]float32{.5, .5, .5} }
+	}
+	// Triangle vertices, 3 per triangle.
+	v32 := make([]float32, 3*3*len(t))
+	// Triangle normals. One per vertex.
+	n32 := make([]float32, 3*3*len(t))
+	// Triangle colors. One per vertex, should be same for all triangle.
+	c32 := make([]float32, 3*3*len(t))
+	for it, triangle := range t {
+		offset := 3 * 3 * it
+		c := color(it)
+		n := Unit(triangle.Normal())
+		for i := range triangle {
+			edgeI := offset + i*3
+			v := triangle[i]
+			v32[edgeI] = float32(v.X)
+			v32[edgeI+1] = float32(v.Y)
+			v32[edgeI+2] = float32(v.Z)
+			n32[edgeI] = float32(n.X)
+			n32[edgeI+1] = float32(n.Y)
+			n32[edgeI+2] = float32(n.Z)
+			c32[edgeI] = c[0]
+			c32[edgeI+1] = c[1]
+			c32[edgeI+2] = c[2]
+		}
+	}
+	geom := three.NewBufferGeometry()
+	geom.SetAttribute("position", three.NewBufferAttribute(v32, 3))
+	geom.SetAttribute("normal", three.NewBufferAttribute(n32, 3))
+	geom.SetAttribute("color", three.NewBufferAttribute(c32, 3))
+	return geom
+}
+
+func triangleOutlines(t []Triangle, material three.MaterialParameters) three.Object3D {
+	return three.NewLineSegments(triangleOutlineGeometry(t), three.NewLineBasicMaterial(&material))
+}
+
+func triangleMesh(t []Triangle, material three.Material, color func(i int) [3]float32) three.Object3D {
+	return three.NewMesh(triangleGeometry(t, color), material)
 }
 
 func pointsObj(p []Vec, material three.MaterialParameters) three.Object3D {

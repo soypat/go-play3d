@@ -13,8 +13,8 @@ import (
 	"github.com/soypat/three"
 )
 
-// See mainPlay.go for makeObjects drawing function, which simplifies
-// user interaction.
+// See mainPlay_js.go for makeObjects drawing function, which contains
+// user input for drawing.
 
 //go:generate go run .
 
@@ -81,8 +81,9 @@ func main() {
 	renderer.SetSize(windowWidth, windowHeight, true)
 	rendererElement := renderer.Get("domElement")
 	document.Get("body").Call("appendChild", rendererElement)
-
-	scene.Add(makeObjects())
+	userInput := three.NewGroup()
+	addObjects(userInput)
+	scene.Add(userInput)
 
 	// Controls to rotate camera around earth
 	controls = three.NewTrackballControls(camera, rendererElement)
