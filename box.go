@@ -72,3 +72,19 @@ func (a Box) Contains(v Vec) bool {
 	return a.Min.X <= v.X && a.Min.Y <= v.Y && a.Min.Z <= v.Z &&
 		v.X <= a.Max.X && v.Y <= a.Max.Y && v.Z <= a.Max.Z
 }
+
+func (b Box) Octree() []Box {
+	ctr := b.Center()
+	min := b.Min
+	max := b.Max
+	return []Box{
+		0: {Min: b.Min, Max: ctr},
+		1: {Min: Vec{ctr.X, min.Y, min.Z}, Max: Vec{max.X, ctr.Y, ctr.Z}},
+		2: {Min: Vec{min.X, ctr.Y, min.Z}, Max: Vec{ctr.X, max.Y, ctr.Z}},
+		3: {Min: Vec{ctr.X, ctr.Y, min.Z}, Max: Vec{max.X, max.Y, ctr.Z}},
+		4: {Min: Vec{min.X, min.Y, ctr.Z}, Max: Vec{ctr.X, ctr.Y, max.Z}},
+		5: {Min: Vec{ctr.X, min.Y, ctr.Z}, Max: Vec{max.X, ctr.Y, max.Z}},
+		6: {Min: Vec{min.X, ctr.Y, ctr.Z}, Max: Vec{ctr.X, max.Y, max.Z}},
+		7: {Min: ctr, Max: max},
+	}
+}

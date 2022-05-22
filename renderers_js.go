@@ -3,6 +3,8 @@
 package main
 
 import (
+	"github.com/soypat/sdf"
+	"github.com/soypat/sdf/render"
 	"github.com/soypat/three"
 )
 
@@ -106,8 +108,8 @@ func triangleOutlines(t []Triangle, material three.MaterialParameters) three.Obj
 	return three.NewLineSegments(triangleOutlineGeometry(t), three.NewLineBasicMaterial(&material))
 }
 
-func triangleMesh(t []Triangle, material three.Material, color func(i int) [3]float32) three.Object3D {
-	return three.NewMesh(triangleGeometry(t, color), material)
+func triangleMesh(t []Triangle, material three.Material) three.Object3D {
+	return three.NewMesh(triangleGeometry(t, nil), material)
 }
 
 func pointsObj(p []Vec, material three.MaterialParameters) three.Object3D {
@@ -169,4 +171,16 @@ func boxesObj(boxes []Box, material three.MaterialParameters) three.Object3D {
 	geom.SetAttribute("position", three.NewBufferAttribute(e32, 3))
 	lines := three.NewLineSegments(geom, three.NewLineBasicMaterial(&material))
 	return lines
+}
+
+func sdf3Obj(obj sdf.SDF3, cells int, color string, opacity float64) three.Object3D {
+	t, err := render.RenderAll(render.NewOctreeRenderer(obj, cells))
+	if err != nil {
+		panic(err)
+	}
+	tris := make([]Triangle, len(t))
+	for i := range tris {
+		tris[i] = Triangle{Vec(t[i][0]), Vec(t[i][1]), Vec(t[i][2])}
+	}
+	return triangleMesh(tris, phongMaterial(color, opacity))
 }
