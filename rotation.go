@@ -126,3 +126,17 @@ func rotateOntoVecHalfway(u, v Vec) Rotation {
 	raised.Real = Dot(u, half)
 	return Rotation(raised)
 }
+
+func slerpQ(x float64, a, b quat.Number) quat.Number {
+	cost := dotQ(a, b)
+	theta := math.Acos(cost)
+	sint := math.Sqrt(1 - cost*cost)
+	sinxt := math.Sin(x*theta) / sint
+	sinxtm1 := math.Sin((1-x)*theta) / sint
+	result := quat.Scale(sinxtm1, a)
+	return quat.Add(result, quat.Scale(sinxt, b))
+}
+
+func dotQ(a, b quat.Number) float64 {
+	return a.Real*b.Real + a.Imag*b.Imag + a.Jmag*b.Jmag + a.Kmag*b.Kmag
+}
