@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/soypat/sdf"
@@ -21,23 +22,28 @@ func addObjects(grp three.Group) {
 	bb := Box{Vec(sbb.Min), Vec(sbb.Max)}
 
 	// grp.Add(boxesObj(bb.Octree(), lineColor("green")))
-	boxes := boxDivide(bb, 5)
+	boxes := boxDivide(CenteredBox(bb.Center(), bb.Scale(Vec{1.1, 1.1, 1.1}).Size()), 10)
 	// Projection matrix.
 	eye := Eye()
 	P := NewMat(nil)
 	aux := NewMat(nil)
 	norms := make([][2]Vec, len(boxes))
 	for i, box := range boxes {
-		const tol = 1e-4
+		const tol = 1e-3
 		c := box.Center()
 		H := sdfHessian(s, c, tol)
 		n := sdfNormal(s, c, tol)
-		norms[i] = [2]Vec{c, Add(c, n)}
+
 		P.Outer(1, n, n)
 		P.Sub(eye, P)
 		aux.Mul(P, H)
 		aux.Mul(aux, P)
 		aux.Scale(Norm(n), aux)
+		r, _ := aux.Eigs() // symmetric matrix!
+		_, k2, k1 := sort3(r[0], r[1], r[2])
+		curvature := math.Abs(k1) + math.Abs(k2)
+		norms[i] = [2]Vec{c, Add(c, Scale(curvature*1e5, n))}
+		fmt.Println(curvature)
 		// Eigenvalues of aux computed, discard zero eigenvalue.
 		// Remaining two eigenvalues are k1 and k2, whose absolute sum
 		// is the positive+negative curvature.

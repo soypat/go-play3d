@@ -4,7 +4,12 @@
 
 package main
 
-import "gonum.org/v1/gonum/mat"
+import (
+	"math"
+
+	"gonum.org/v1/gonum/floats/scalar"
+	"gonum.org/v1/gonum/mat"
+)
 
 // Mat represents a 3×3 matrix. Useful for rotation matrices and such.
 // The zero value is usable as the 3×3 zero matrix.
@@ -196,4 +201,43 @@ func (m *Mat) Det() float64 {
 	detb := m.At(1, 0)*m.At(2, 2) - m.At(1, 2)*m.At(2, 0)
 	detc := m.At(1, 0)*m.At(2, 1) - m.At(1, 1)*m.At(2, 0)
 	return a*deta - b*detb + c*detc
+}
+
+func (m *Mat) Eigs() (r, c []float64) {
+	const tol = 1e-12
+	if !scalar.EqualWithinAbs(m.At(0, 1), m.At(1, 0), tol) ||
+		!scalar.EqualWithinAbs(m.At(1, 2), m.At(2, 1), tol) ||
+		!scalar.EqualWithinAbs(m.At(0, 2), m.At(2, 0), tol) {
+		panic("non-symmetric eig algorithm not implemented")
+	}
+	// 3*m = tr(A)
+	M := (m.At(0, 0) + m.At(1, 1) + m.At(2, 2)) / 3
+	// Calculate  2*q=det(A-m*I)
+	nm := NewMat(nil)
+	nm.Scale(M, Eye())
+	nm.Sub(m, nm)
+	q := nm.Det() / 2
+	// 6*p = sum of squares of elements of A-m*I
+	var p float64
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			v := nm.At(i, j)
+			p += v / 6 * v
+		}
+	}
+	if math.Abs(p) < tol && math.Abs(q) < tol {
+		// p == q == 0
+		return []float64{M, M, M}, nil
+	}
+	// sqrt(3)
+	const sqrt3 = 1.7320508075688772935274463415058723669428052538103806280558069794
+	// phi = 1/3 atan( sqrt(p^3 - q^2)/q ), 0<=phi<=pi
+	phi := math.Atan(math.Sqrt(p*p*p-q*q)/q) / 3
+	sp, cp := math.Sincos(phi)
+	sqrtp := math.Sqrt(p)
+	return []float64{
+		M + 2*sqrtp*cp,
+		M - sqrtp*(cp+sqrt3*sp),
+		M - sqrtp*(cp-sqrt3*sp),
+	}, nil
 }

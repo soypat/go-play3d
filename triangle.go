@@ -136,18 +136,21 @@ func (t Triangle) orderedLengths() (a, b, c float64) {
 	l1 := Norm(s1)
 	l2 := Norm(s2)
 	l3 := Norm(s3)
-	a = math.Min(math.Min(l1, l2), l3)
-	c = math.Max(math.Max(l1, l2), l3)
-	// Find which length is neither max nor minimum.
-	switch {
-	case l1 != a && l1 != c:
-		b = l1
-	case l2 != a && l2 != c:
-		b = l2
-	default:
-		b = l3
+	return sort3(l1, l2, l3)
+}
+
+// sort3 returns sorted arguments a ≤ b ≤ c.
+func sort3(l1, l2, l3 float64) (a, b, c float64) {
+	if l2 < l1 {
+		l1, l2 = l2, l1
 	}
-	return a, b, c
+	if l3 < l2 {
+		l2, l3 = l3, l2
+		if l2 < l1 {
+			l1, l2 = l2, l1
+		}
+	}
+	return l1, l2, l3
 }
 
 func (t Triangle) lower() [3]r2.Vec {
