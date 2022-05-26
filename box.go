@@ -4,6 +4,8 @@
 
 package main
 
+import "math"
+
 // CenteredBox creates a Box with a given center and size.
 func CenteredBox(center, size Vec) Box {
 	half := Scale(0.5, size)
@@ -87,4 +89,27 @@ func (b Box) Octree() []Box {
 		6: {Min: Vec{min.X, ctr.Y, ctr.Z}, Max: Vec{ctr.X, max.Y, max.Z}},
 		7: {Min: ctr, Max: max},
 	}
+}
+
+func boxDivide(b Box, maxCell int) (boxes []Box) {
+	sz := b.Size()
+	maxDim := math.Max(sz.Z, math.Max(sz.X, sz.Y))
+	resolution := maxDim / float64(maxCell)
+	div := [3]int{
+		int(math.Ceil(sz.X / resolution)),
+		int(math.Ceil(sz.Y / resolution)),
+		int(math.Ceil(sz.Z / resolution)),
+	}
+	for i := 0; i < div[0]; i++ {
+		x := (float64(i)+0.5)*resolution + b.Min.X
+		for j := 0; j < div[1]; j++ {
+			y := (float64(j)+0.5)*resolution + b.Min.Y
+			for k := 0; k < div[2]; k++ {
+				z := (float64(k)+0.5)*resolution + b.Min.Z
+				bb := CenteredBox(Vec{x, y, z}, Vec{resolution, resolution, resolution})
+				boxes = append(boxes, bb)
+			}
+		}
+	}
+	return boxes
 }
