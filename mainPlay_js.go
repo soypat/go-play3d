@@ -3,9 +3,10 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/soypat/sdf/form3/must3"
 	"github.com/soypat/three"
-	"gonum.org/v1/gonum/spatial/r3"
 )
 
 func addObjects(grp three.Group) {
@@ -27,19 +28,26 @@ func addObjects(grp three.Group) {
 		curvature := sdfCurvature(s, c, tol)
 		norms[i] = [2]Vec{c, Add(c, Scale(curvature*1e5, sdfNormal(s, c, tol)))}
 	}
-	mesh := maketmesh(mainBox, .06)
+	mesh := maketmesh(mainBox, .3)
 	// grp.Add(boxesObj(boxes, lineColor("blue")))
 	// grp.Add(linesObj(norms, lineColor("gold")))
 	// grp.Add(boxesObj(mesh.boxes(), lineColor("green")))
 	nodes, tetras := mesh.meshTetraBCC()
-	eval := func(v Vec) float64 { return s.Evaluate(r3.Vec(v)) }
+	// eval := func(v Vec) float64 { return s.Evaluate(r3.Vec(v)) }
 	newtetras := make([][4]int, 0, len(tetras))
 
 	for _, tetra := range tetras {
-		nd := [4]Vec{nodes[tetra[0]], nodes[tetra[1]], nodes[tetra[2]], nodes[tetra[3]]}
-		if eval(nd[0]) < 0 || eval(nd[1]) < 0 || eval(nd[2]) < 0 || eval(nd[3]) < 0 {
+		nd := Tetra{nodes[tetra[0]], nodes[tetra[1]], nodes[tetra[2]], nodes[tetra[3]]}
+		aspect := nd.aspect()
+		if aspect > 1 {
+			// fmt.Println(nd.altitudes())
+			fmt.Println(aspect)
 			newtetras = append(newtetras, tetra)
 		}
+		// if eval(nd[0]) < 0 || eval(nd[1]) < 0 || eval(nd[2]) < 0 || eval(nd[3]) < 0 {
+		// 	newtetras = append(newtetras, tetra)
+		// }
+
 	}
 	// grp.Add(pointsObj(nodes, pointColor("cyan")))
 	grp.Add(triangleMesh(tetraTriangles(nodes, newtetras), phongMaterial("orange", 0.5)))
