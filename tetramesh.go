@@ -149,23 +149,8 @@ func (t *tmesh) meshTetraBCC() (nodes []Vec, tetras [][4]int) {
 				node.bccnod[in] = v
 			}
 		}
-		tetras = append(tetras,
-			// YZ plane facing tetrahedrons.
-			[4]int{node.bccnod[i000], node.bccnod[i0yz], node.bccnod[i0y0], nctr},
-			[4]int{node.bccnod[i000], node.bccnod[i00z], node.bccnod[i0yz], nctr},
-			[4]int{node.bccnod[ix00], node.bccnod[ixy0], node.bccnod[ixyz], nctr},
-			[4]int{node.bccnod[ix00], node.bccnod[ixyz], node.bccnod[ix0z], nctr},
-			// XZ
-			[4]int{node.bccnod[i000], node.bccnod[ix0z], node.bccnod[i00z], nctr},
-			[4]int{node.bccnod[i000], node.bccnod[ix00], node.bccnod[ix0z], nctr},
-			[4]int{node.bccnod[i0y0], node.bccnod[i0yz], node.bccnod[ixyz], nctr},
-			[4]int{node.bccnod[i0y0], node.bccnod[ixyz], node.bccnod[ixy0], nctr},
-			// XY
-			[4]int{node.bccnod[i000], node.bccnod[ixy0], node.bccnod[ix00], nctr},
-			[4]int{node.bccnod[i000], node.bccnod[i0y0], node.bccnod[ixy0], nctr},
-			[4]int{node.bccnod[i00z], node.bccnod[ix0z], node.bccnod[ixyz], nctr},
-			[4]int{node.bccnod[i00z], node.bccnod[ixyz], node.bccnod[i0yz], nctr},
-		)
+		tetras = append(tetras, node.bccTetras()...)
+
 	})
 	return nodes, tetras
 }
@@ -268,3 +253,70 @@ func max(a, b int) int {
 	}
 	return b
 }
+
+// naive implementation of tetra mesher.
+func (node tnode) naiveTetras() [][4]int {
+	nctr := node.bccnod[ictr]
+	return [][4]int{
+		// YZ plane facing tetrahedrons.
+		{node.bccnod[i000], node.bccnod[i0yz], node.bccnod[i0y0], nctr},
+		{node.bccnod[i000], node.bccnod[i00z], node.bccnod[i0yz], nctr},
+		{node.bccnod[ix00], node.bccnod[ixy0], node.bccnod[ixyz], nctr},
+		{node.bccnod[ix00], node.bccnod[ixyz], node.bccnod[ix0z], nctr},
+		// XZ
+		{node.bccnod[i000], node.bccnod[ix0z], node.bccnod[i00z], nctr},
+		{node.bccnod[i000], node.bccnod[ix00], node.bccnod[ix0z], nctr},
+		{node.bccnod[i0y0], node.bccnod[i0yz], node.bccnod[ixyz], nctr},
+		{node.bccnod[i0y0], node.bccnod[ixyz], node.bccnod[ixy0], nctr},
+		// XY
+		{node.bccnod[i000], node.bccnod[ixy0], node.bccnod[ix00], nctr},
+		{node.bccnod[i000], node.bccnod[i0y0], node.bccnod[ixy0], nctr},
+		{node.bccnod[i00z], node.bccnod[ix0z], node.bccnod[ixyz], nctr},
+		{node.bccnod[i00z], node.bccnod[ixyz], node.bccnod[i0yz], nctr},
+	}
+}
+
+// bccTetras is the BCC lattice meshing method
+func (node tnode) bccTetras() (tetras [][4]int) {
+	// We mesh tetrahedrons on minor sides.
+	nctr := node.bccnod[ictr]
+	if node.xm.exists() && node.xm.bccnod[ictr] >= 0 {
+		xctr := node.xm.bccnod[ictr]
+		tetras = append(tetras,
+			[4]int{nctr, node.bccnod[i000], node.bccnod[i0y0], xctr},
+			[4]int{nctr, node.bccnod[i00z], node.bccnod[i000], xctr},
+			[4]int{nctr, node.bccnod[i0yz], node.bccnod[i00z], xctr},
+			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i0yz], xctr},
+		)
+	}
+
+	if node.ym.exists() && node.ym.bccnod[ictr] >= 0 {
+		yctr := node.ym.bccnod[ictr]
+		tetras = append(tetras,
+			[4]int{nctr, node.bccnod[ix00], node.bccnod[i000], yctr},
+			[4]int{nctr, node.bccnod[ix0z], node.bccnod[ix00], yctr},
+			[4]int{nctr, node.bccnod[i00z], node.bccnod[ix0z], yctr},
+			[4]int{nctr, node.bccnod[i000], node.bccnod[i00z], yctr},
+		)
+	}
+	if node.zm.exists() && node.zm.bccnod[ictr] >= 0 {
+		zctr := node.zm.bccnod[ictr]
+		tetras = append(tetras,
+			[4]int{nctr, node.bccnod[i000], node.bccnod[ix00], zctr},
+			[4]int{nctr, node.bccnod[ix00], node.bccnod[ixy0], zctr},
+			[4]int{nctr, node.bccnod[ixy0], node.bccnod[i0y0], zctr},
+			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i000], zctr},
+		)
+	}
+	return tetras
+}
+
+// if node.xp.exists() && node.xp.bccnod[ictr] >= 0 {
+// 	xctr := node.xp.bccnod[ictr]
+// 	tetras = append(tetras,
+// 		[4]int{xctr, node.bccnod[ix00], node.bccnod[ixy0], nctr},
+// 		[4]int{xctr, node.bccnod[ixy0], node.bccnod[ixyz], nctr},
+// 		[4]int{xctr, node.bccnod[ixyz], node.bccnod[ix0z], nctr},
+// 		[4]int{xctr, node.bccnod[ix0z], node.bccnod[ix00], nctr},
+// 	)
+// }
