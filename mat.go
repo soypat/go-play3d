@@ -241,3 +241,31 @@ func (m *Mat) Eigs() (r, c []float64) {
 		M - sqrtp*(cp-sqrt3*sp),
 	}, nil
 }
+
+func (m *Mat) Hessian(p Vec, tol float64, f func(Vec) float64) {
+	h2 := tol * tol * 4
+	dx := Vec{X: tol}
+	dy := Vec{Y: tol}
+	dz := Vec{Z: tol}
+	fp := f(p)
+	diff2 := func(p, d1, d2 Vec, f func(p Vec) float64) float64 {
+		return (f(Add(p, Add(d1, d2))) - f(Add(p, d2)) - f(Add(p, d1)) + fp) / h2
+	}
+	fxx := diff2(p, dx, dx, f)
+	fyy := diff2(p, dy, dy, f)
+	fzz := diff2(p, dz, dz, f)
+	fxy := diff2(p, dx, dy, f)
+	fxz := diff2(p, dx, dz, f)
+	fyz := diff2(p, dy, dz, f)
+	m.Set(0, 0, fxx)
+	m.Set(0, 1, fxy)
+	m.Set(0, 2, fxz)
+
+	m.Set(1, 0, fxy)
+	m.Set(1, 1, fyy)
+	m.Set(1, 2, fyz)
+
+	m.Set(2, 0, fxz)
+	m.Set(2, 1, fyz)
+	m.Set(2, 2, fzz)
+}

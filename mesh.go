@@ -5,11 +5,11 @@ import (
 )
 
 type sdfTriangle struct {
-	Vertices [3]int     // Indices to vertices
-	C        Vec        // Centroid
-	N        Vec        // Face normal
-	T        *Transform // Jones transformation matrix for distance calculation
-	InvT     *Transform // inverse jones transform
+	Vertices [3]int  // Indices to vertices
+	C        Vec     // Centroid
+	N        Vec     // Face normal
+	T        *Affine // Jones transformation matrix for distance calculation
+	InvT     *Affine // inverse jones transform
 	m        *mesh
 }
 

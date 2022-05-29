@@ -229,12 +229,12 @@ func (m *tmesh) boxes() (bbs []Box) {
 		found[actual] = true
 		bbs = append(bbs, actual.box())
 		switch {
+		case !found[actual.zp]:
+			actual = actual.zp
 		case !found[actual.xp]:
 			actual = actual.xp
 		case !found[actual.yp]:
 			actual = actual.yp
-		case !found[actual.zp]:
-			actual = actual.zp
 		case !found[actual.zm]:
 			actual = actual.zm
 		case !found[actual.ym]:
@@ -254,8 +254,8 @@ func max(a, b int) int {
 	return b
 }
 
-// naive implementation of tetra mesher.
-func (node tnode) naiveTetras() [][4]int {
+// naive implementation of BCC tetra mesher. Meshing is not isotropic.
+func (node tnode) naiveBCCTetras() [][4]int {
 	nctr := node.bccnod[ictr]
 	return [][4]int{
 		// YZ plane facing tetrahedrons.
@@ -276,20 +276,21 @@ func (node tnode) naiveTetras() [][4]int {
 	}
 }
 
-// bccTetras is the BCC lattice meshing method
+// bccTetras is the BCC lattice meshing method. Results in isotropic mesh.
 func (node tnode) bccTetras() (tetras [][4]int) {
 	// We mesh tetrahedrons on minor sides.
 	nctr := node.bccnod[ictr]
-	if node.xm.exists() && node.xm.bccnod[ictr] >= 0 {
-		xctr := node.xm.bccnod[ictr]
+	// Start with nodes in z direction since matrix is indexed with z as major
+	// dimension so maybe zm is on the cache.
+	if node.zm.exists() && node.zm.bccnod[ictr] >= 0 {
+		zctr := node.zm.bccnod[ictr]
 		tetras = append(tetras,
-			[4]int{nctr, node.bccnod[i000], node.bccnod[i0y0], xctr},
-			[4]int{nctr, node.bccnod[i00z], node.bccnod[i000], xctr},
-			[4]int{nctr, node.bccnod[i0yz], node.bccnod[i00z], xctr},
-			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i0yz], xctr},
+			[4]int{nctr, node.bccnod[i000], node.bccnod[ix00], zctr},
+			[4]int{nctr, node.bccnod[ix00], node.bccnod[ixy0], zctr},
+			[4]int{nctr, node.bccnod[ixy0], node.bccnod[i0y0], zctr},
+			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i000], zctr},
 		)
 	}
-
 	if node.ym.exists() && node.ym.bccnod[ictr] >= 0 {
 		yctr := node.ym.bccnod[ictr]
 		tetras = append(tetras,
@@ -299,13 +300,13 @@ func (node tnode) bccTetras() (tetras [][4]int) {
 			[4]int{nctr, node.bccnod[i000], node.bccnod[i00z], yctr},
 		)
 	}
-	if node.zm.exists() && node.zm.bccnod[ictr] >= 0 {
-		zctr := node.zm.bccnod[ictr]
+	if node.xm.exists() && node.xm.bccnod[ictr] >= 0 {
+		xctr := node.xm.bccnod[ictr]
 		tetras = append(tetras,
-			[4]int{nctr, node.bccnod[i000], node.bccnod[ix00], zctr},
-			[4]int{nctr, node.bccnod[ix00], node.bccnod[ixy0], zctr},
-			[4]int{nctr, node.bccnod[ixy0], node.bccnod[i0y0], zctr},
-			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i000], zctr},
+			[4]int{nctr, node.bccnod[i000], node.bccnod[i0y0], xctr},
+			[4]int{nctr, node.bccnod[i00z], node.bccnod[i000], xctr},
+			[4]int{nctr, node.bccnod[i0yz], node.bccnod[i00z], xctr},
+			[4]int{nctr, node.bccnod[i0y0], node.bccnod[i0yz], xctr},
 		)
 	}
 	return tetras

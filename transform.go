@@ -8,9 +8,9 @@ import (
 	"math"
 )
 
-// Transform represents a 3D spatial transformation.
-// The zero value of Transform is the identity transform.
-type Transform struct {
+// Affine represents a 3D spatial transformation.
+// The zero value of Affine is the identity transform.
+type Affine struct {
 	// in order to make the zero value of Transform represent the identity
 	// transform we store it with the identity matrix subtracted.
 	// These diagonal elements are subtracted such that
@@ -26,7 +26,7 @@ type Transform struct {
 
 // Transform applies the Transform to the argument vector
 // and returns the result.
-func (t Transform) Transform(v Vec) Vec {
+func (t Affine) Transform(v Vec) Vec {
 	// https://github.com/mrdoob/three.js/blob/dev/src/math/Vector3.js#L262
 	w := 1 / (t.x30*v.X + t.x31*v.Y + t.x32*v.Z + t.d33 + 1)
 	return Vec{
@@ -37,19 +37,19 @@ func (t Transform) Transform(v Vec) Vec {
 }
 
 // zeroTransform is the Transform that returns zeroTransform when multiplied by any Transform.
-var zeroTransform = Transform{d00: -1, d11: -1, d22: -1, d33: -1}
+var zeroTransform = Affine{d00: -1, d11: -1, d22: -1, d33: -1}
 
-// NewTransform returns a new Transform type and populates its elements
-// with values passed in row-major form. If val is nil then NewTransform
+// NewAffine returns a new Transform type and populates its elements
+// with values passed in row-major form. If val is nil then NewAffine
 // returns a Transform filled with zeros.
-func NewTransform(a []float64) Transform {
+func NewAffine(a []float64) Affine {
 	if a == nil {
 		return zeroTransform
 	}
 	if len(a) != 16 {
 		panic("Transform is initialized with 16 values")
 	}
-	return Transform{
+	return Affine{
 		d00: a[0] - 1, x01: a[1], x02: a[2], x03: a[3],
 		x10: a[4], d11: a[5] - 1, x12: a[6], x13: a[7],
 		x20: a[8], x21: a[9], d22: a[10] - 1, x23: a[11],
@@ -57,11 +57,11 @@ func NewTransform(a []float64) Transform {
 	}
 }
 
-// ComposeTransform creates a new transform for a given translation to
+// ComposeAffine creates a new transform for a given translation to
 // positon, scaling vector scale and quaternion rotation.
 // The identity Transform is constructed with
-//  ComposeTransform(Vec{}, Vec{1,1,1}, Rotation{})
-func ComposeTransform(position, scale Vec, q Rotation) Transform {
+//  ComposeAffine(Vec{}, Vec{1,1,1}, Rotation{})
+func ComposeAffine(position, scale Vec, q Rotation) Affine {
 	x2 := q.Imag + q.Imag
 	y2 := q.Jmag + q.Jmag
 	z2 := q.Kmag + q.Kmag
@@ -75,7 +75,7 @@ func ComposeTransform(position, scale Vec, q Rotation) Transform {
 	wy := q.Real * y2
 	wz := q.Real * z2
 
-	var t Transform
+	var t Affine
 	t.d00 = (1-(yy+zz))*scale.X - 1
 	t.x10 = (xy + wz) * scale.X
 	t.x20 = (xz - wy) * scale.X
@@ -95,7 +95,7 @@ func ComposeTransform(position, scale Vec, q Rotation) Transform {
 }
 
 // Translate adds Vec to the positional Transform.
-func (t Transform) Translate(v Vec) Transform {
+func (t Affine) Translate(v Vec) Affine {
 	t.x03 += v.X
 	t.x13 += v.Y
 	t.x23 += v.Z
@@ -104,7 +104,7 @@ func (t Transform) Translate(v Vec) Transform {
 
 // Scale returns the transform with scaling added around
 // the argumnt origin.
-func (t Transform) Scale(origin, factor Vec) Transform {
+func (t Affine) Scale(origin, factor Vec) Affine {
 	if origin == (Vec{}) {
 		return t.scale(factor)
 	}
@@ -113,7 +113,7 @@ func (t Transform) Scale(origin, factor Vec) Transform {
 	return t.Translate(origin)
 }
 
-func (t Transform) scale(factor Vec) Transform {
+func (t Affine) scale(factor Vec) Affine {
 	t.d00 = (t.d00+1)*factor.X - 1
 	t.x10 *= factor.X
 	t.x20 *= factor.X
@@ -133,11 +133,11 @@ func (t Transform) scale(factor Vec) Transform {
 
 // Mul multiplies the Transforms a and b and returns the result.
 // This is the equivalent of combining two transforms in one.
-func (t Transform) Mul(b Transform) Transform {
-	if t == (Transform{}) {
+func (t Affine) Mul(b Affine) Affine {
+	if t == (Affine{}) {
 		return b
 	}
-	if b == (Transform{}) {
+	if b == (Affine{}) {
 		return t
 	}
 	x00 := t.d00 + 1
@@ -148,7 +148,7 @@ func (t Transform) Mul(b Transform) Transform {
 	y11 := b.d11 + 1
 	y22 := b.d22 + 1
 	y33 := b.d33 + 1
-	var m Transform
+	var m Affine
 	m.d00 = x00*y00 + t.x01*b.x10 + t.x02*b.x20 + t.x03*b.x30 - 1
 	m.x10 = t.x10*y00 + x11*b.x10 + t.x12*b.x20 + t.x13*b.x30
 	m.x20 = t.x20*y00 + t.x21*b.x10 + x22*b.x20 + t.x23*b.x30
@@ -169,7 +169,7 @@ func (t Transform) Mul(b Transform) Transform {
 }
 
 // Det returns the determinant of the Transform.
-func (t Transform) Det() float64 {
+func (t Affine) Det() float64 {
 	x00 := t.d00 + 1
 	x11 := t.d11 + 1
 	x22 := t.d22 + 1
@@ -191,8 +191,8 @@ func (t Transform) Det() float64 {
 // Inv returns the inverse of the transform such that
 // t.Inv() * t is the identity Transform.
 // If matrix is singular then Inv() returns the zero transform.
-func (t Transform) Inv() Transform {
-	if t == (Transform{}) {
+func (t Affine) Inv() Affine {
+	if t == (Affine{}) {
 		return t
 	}
 	det := t.Det()
@@ -205,7 +205,7 @@ func (t Transform) Inv() Transform {
 	x11 := t.d11 + 1
 	x22 := t.d22 + 1
 	x33 := t.d33 + 1
-	var m Transform
+	var m Affine
 	m.d00 = (t.x12*t.x23*t.x31-t.x13*x22*t.x31+t.x13*t.x21*t.x32-x11*t.x23*t.x32-t.x12*t.x21*x33+x11*x22*x33)*d - 1
 	m.x01 = (t.x03*x22*t.x31 - t.x02*t.x23*t.x31 - t.x03*t.x21*t.x32 + t.x01*t.x23*t.x32 + t.x02*t.x21*x33 - t.x01*x22*x33) * d
 	m.x02 = (t.x02*t.x13*t.x31 - t.x03*t.x12*t.x31 + t.x03*x11*t.x32 - t.x01*t.x13*t.x32 - t.x02*x11*x33 + t.x01*t.x12*x33) * d
@@ -225,8 +225,8 @@ func (t Transform) Inv() Transform {
 	return m
 }
 
-func (t Transform) transpose() Transform {
-	return Transform{
+func (t Affine) transpose() Affine {
+	return Affine{
 		d00: t.d00, x01: t.x10, x02: t.x20, x03: t.x30,
 		x10: t.x01, d11: t.d11, x12: t.x21, x13: t.x31,
 		x20: t.x02, x21: t.x12, d22: t.d22, x23: t.x32,
@@ -235,7 +235,7 @@ func (t Transform) transpose() Transform {
 }
 
 // equals tests the equality of the Transforms to within a tolerance.
-func (t Transform) equals(b Transform, tolerance float64) bool {
+func (t Affine) equals(b Affine, tolerance float64) bool {
 	return math.Abs(t.d00-b.d00) < tolerance &&
 		math.Abs(t.x01-b.x01) < tolerance &&
 		math.Abs(t.x02-b.x02) < tolerance &&
@@ -256,7 +256,7 @@ func (t Transform) equals(b Transform, tolerance float64) bool {
 
 // SliceCopy returns a copy of the Transform's data
 // in row major storage format. It returns 16 elements.
-func (t Transform) SliceCopy() []float64 {
+func (t Affine) SliceCopy() []float64 {
 	return []float64{
 		t.d00 + 1, t.x01, t.x02, t.x03,
 		t.x10, t.d11 + 1, t.x12, t.x13,
@@ -265,7 +265,7 @@ func (t Transform) SliceCopy() []float64 {
 	}
 }
 
-func (a Transform) ApplyTriangle(b Triangle) Triangle {
+func (a Affine) ApplyTriangle(b Triangle) Triangle {
 	for i := range b {
 		b[i] = a.Transform(b[i])
 	}
@@ -296,23 +296,23 @@ func (a Transform) ApplyTriangle(b Triangle) Triangle {
 // }
 
 // rotateToVector returns the rotation matrix that transforms a onto the same direction as b.
-func rotateToVec(a, b Vec) Transform {
+func rotateToVec(a, b Vec) Affine {
 	const epsilon = 1e-12
 	// is either vector == 0?
 	if EqualWithin(a, Vec{}, epsilon) || EqualWithin(b, Vec{}, epsilon) {
-		return Transform{}
+		return Affine{}
 	}
 	// normalize both vectors
 	a = Unit(a)
 	b = Unit(b)
 	// are the vectors the same?
 	if EqualWithin(a, b, epsilon) {
-		return Transform{}
+		return Affine{}
 	}
 
 	// are the vectors opposite (180 degrees apart)?
 	if EqualWithin(Scale(-1, a), b, epsilon) {
-		return Transform{
+		return Affine{
 			-1, 0, 0, 0,
 			0, -1, 0, 0,
 			0, 0, -1, 0,
@@ -332,7 +332,7 @@ func rotateToVec(a, b Vec) Transform {
 	// Calculate sum of matrices.
 	vx.Add(vx, Eye())
 	vx.Add(vx, vx2)
-	return Transform{
+	return Affine{
 		vx.At(0, 0), vx.At(0, 1), vx.At(0, 2), 0,
 		vx.At(1, 0), vx.At(1, 1), vx.At(1, 2), 0,
 		vx.At(2, 0), vx.At(2, 1), vx.At(2, 2), 0,
@@ -430,3 +430,7 @@ func (a M33) MulScalar(k float64) M33 {
 	}
 }
 */
+
+type Transformer interface {
+	Transform(Vec) Vec
+}

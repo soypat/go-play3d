@@ -161,8 +161,12 @@ func (t Triangle) lower() [3]r2.Vec {
 	}
 }
 
+func (t Triangle) plane() plane {
+	return newPlane(t.Centroid(), t.Normal())
+}
+
 // canalisTransform courtesy of Agustin Canalis (acanalis).
-func canalisTransform(t Triangle) Transform {
+func canalisTransform(t Triangle) Affine {
 	u2 := Sub(t[1], t[0])
 	u3 := Sub(t[2], t[0])
 
@@ -171,7 +175,7 @@ func canalisTransform(t Triangle) Transform {
 	yc = Unit(yc)
 	zc := Cross(xc, yc)
 
-	T := NewTransform([]float64{
+	T := NewAffine([]float64{
 		xc.X, xc.Y, xc.Z, 0,
 		yc.X, yc.Y, yc.Z, 0,
 		zc.X, zc.Y, zc.Z, 0,
@@ -185,7 +189,7 @@ func canalisTransform(t Triangle) Transform {
 //  - the triangle's first edge (t_0,t_1) is on the X axis
 //  - the triangle's first vertex t_0 is at the origin
 //  - the triangle's last vertex t_2 is in the XY plane.
-func jones2Transform(t Triangle) Transform {
+func jones2Transform(t Triangle) Affine {
 
 	// Mark W. Jones "3D Distance from a Point to a Triangle"
 	// Department of Computer Science, University of Wales Swansea
@@ -199,7 +203,7 @@ func jones2Transform(t Triangle) Transform {
 	offset := rot.Rotate(t[0])
 	// fmt.Println(p1p2, v2, rot2.Rotate(v2))
 
-	return ComposeTransform(Scale(-1, offset), Vec{1, 1, 1}, rot)
+	return ComposeAffine(Scale(-1, offset), Vec{1, 1, 1}, rot)
 	// Tform := rotateToVec(p1p2, Vec{X: 1})
 	// Tdis := Tform.Translate()
 	// // Tdis := Translate(Scale(-1, t[0]))

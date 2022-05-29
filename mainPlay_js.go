@@ -37,17 +37,16 @@ func addObjects(grp three.Group) {
 
 	for _, tetra := range tetras {
 		nd := Tetra{nodes[tetra[0]], nodes[tetra[1]], nodes[tetra[2]], nodes[tetra[3]]}
-		// aspect := nd.aspect()
-		// if aspect > 1 {
-		// 	// fmt.Println(nd.altitudes())
-		// 	fmt.Println(aspect)
-		// 	newtetras = append(newtetras, tetra)
-		// }
+		// aspect := nd.longestEdge()
+		// evals := [4]float64{eval(nd[0]), eval(nd[1]), eval(nd[2]), eval(nd[3])}
 		if eval(nd[0]) < 0 || eval(nd[1]) < 0 || eval(nd[2]) < 0 || eval(nd[3]) < 0 {
 			newtetras = append(newtetras, tetra)
 		}
-
 	}
+	omesh := newOptimesh(nodes, newtetras)
+	omesh.foreach(func(i int, on *onode) {
+		// Lapla
+	})
 	// grp.Add(pointsObj(nodes, pointColor("cyan")))
 	grp.Add(triangleMesh(tetraTriangles(nodes, newtetras), phongMaterial("orange", 0.5)))
 }

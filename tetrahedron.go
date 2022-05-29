@@ -46,6 +46,14 @@ func (t Tetra) altitudes() (alt [4]float64) {
 	return alt
 }
 
+func (t Tetra) volume() float64 {
+	const third = 1.0 / 3.0
+	base := Triangle{t[0], t[1], t[2]}
+	area := base.Area()
+	height := base.plane().distanceTo(t[3])
+	return third * area * height
+}
+
 type plane struct {
 	// P is a point on the plane
 	P Vec

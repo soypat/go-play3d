@@ -198,3 +198,22 @@ func randomVec(scale float64, rnd *rand.Rand) Vec {
 	scale *= 2
 	return Vec{X: scale * (rnd.Float64() - 0.5), Y: scale * (rnd.Float64() - 0.5), Z: scale * (rnd.Float64() - 0.5)}
 }
+
+func Gradient(p Vec, tol float64, f func(Vec) float64) Vec {
+	return Vec{
+		X: f(Add(p, Vec{X: tol})) - f(Add(p, Vec{X: -tol})),
+		Y: f(Add(p, Vec{Y: tol})) - f(Add(p, Vec{Y: -tol})),
+		Z: f(Add(p, Vec{Z: tol})) - f(Add(p, Vec{Z: -tol})),
+	}
+}
+
+func Divergence(p Vec, tol float64, f func(Vec) Vec) float64 {
+	dx := Sub(f(Add(p, Vec{X: tol})), f(Add(p, Vec{X: -tol})))
+	dy := Sub(f(Add(p, Vec{Y: tol})), f(Add(p, Vec{Y: -tol})))
+	dz := Sub(f(Add(p, Vec{Z: tol})), f(Add(p, Vec{Z: -tol})))
+	return dx.X + dy.Y + dz.Z
+}
+
+func Laplacian(p Vec, tol float64, f func(Vec) float64) float64 {
+	return Divergence(p, tol, func(v Vec) Vec { return Gradient(p, tol, f) })
+}
