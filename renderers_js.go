@@ -184,3 +184,17 @@ func sdf3Obj(obj sdf.SDF3, cells int, color string, opacity float64) three.Objec
 	}
 	return triangleMesh(tris, phongMaterial(color, opacity))
 }
+
+func tetraTriangles(nodes []Vec, tetras [][4]int) []Triangle {
+	var triangles []Triangle
+	for _, tetra := range tetras {
+		nd := [4]Vec{nodes[tetra[0]], nodes[tetra[1]], nodes[tetra[2]], nodes[tetra[3]]}
+		triangles = append(triangles,
+			Triangle{nd[0], nd[1], nd[2]},
+			Triangle{nd[1], nd[3], nd[2]},
+			Triangle{nd[0], nd[3], nd[1]},
+			Triangle{nd[0], nd[2], nd[3]},
+		)
+	}
+	return triangles
+}

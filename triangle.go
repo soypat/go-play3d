@@ -182,7 +182,7 @@ func canalisTransform(t Triangle) Affine {
 		0, 0, 0, 1,
 	})
 	t0T := T.Transform(t[0])
-	return T.Translate(Scale(-1, t0T))
+	return T.AddTranslation(Scale(-1, t0T))
 }
 
 // Returns a transformation for a triangle so that:
@@ -203,7 +203,7 @@ func jones2Transform(t Triangle) Affine {
 	offset := rot.Rotate(t[0])
 	// fmt.Println(p1p2, v2, rot2.Rotate(v2))
 
-	return ComposeAffine(Scale(-1, offset), Vec{1, 1, 1}, rot)
+	return ComposeAffine(Scale(-1, offset), Warp{}, rot)
 	// Tform := rotateToVec(p1p2, Vec{X: 1})
 	// Tdis := Tform.Translate()
 	// // Tdis := Translate(Scale(-1, t[0]))

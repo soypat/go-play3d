@@ -113,3 +113,36 @@ func boxDivide(b Box, maxCell int) (boxes []Box) {
 	}
 	return boxes
 }
+
+func (b Box) TransformBox(t Transformer) Box {
+	v := b.Vertices()
+	for i := range v {
+		vt := t.Transform(v[i])
+		b.Min = minElem(b.Min, vt)
+		b.Max = maxElem(b.Max, vt)
+	}
+	return b
+}
+
+// ApplyBox rotates/translates a 3d bounding box and resizes for axis-alignment.
+func (a Affine) ApplyBox(box Box) Box {
+
+	r := Vec{X: a.d00 + 1, Y: a.x10, Z: a.x20}
+	u := Vec{X: a.x01, Y: a.d11 + 1, Z: a.x21}
+	b := Vec{X: a.x02, Y: a.x12, Z: a.d22 + 1}
+	t := Vec{X: a.x03, Y: a.x13, Z: a.x23}
+
+	xa := Scale(box.Min.X, r)
+	xb := Scale(box.Max.X, r)
+	ya := Scale(box.Min.Y, u)
+	yb := Scale(box.Max.Y, u)
+	za := Scale(box.Min.Z, b)
+	zb := Scale(box.Max.Z, b)
+	xa, xb = minElem(xa, xb), maxElem(xa, xb)
+	ya, yb = minElem(ya, yb), maxElem(ya, yb)
+	za, zb = minElem(za, zb), maxElem(za, zb)
+	min := Add(Add(xa, ya), Add(za, t))
+	max := Add(Add(xb, yb), Add(zb, t))
+
+	return Box{min, max}
+}
