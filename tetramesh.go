@@ -129,7 +129,7 @@ func maketmesh(b Box, resolution float64) *tmesh {
 	return mesh
 }
 
-func (t *tmesh) meshTetraBCC() (nodes []Vec, tetras [][4]int) {
+func (t *tmesh) meshTetraBCC(evaluator func(Vec) float64) (nodes []Vec, tetras [][4]int) {
 	n := 0
 	tetras = make([][4]int, len(t.matrix.nodes))
 	t.matrix.foreach(func(_, _, _ int, node *tnode) {

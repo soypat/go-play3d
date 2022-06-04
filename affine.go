@@ -31,7 +31,7 @@ func (a Affine) Transform(v Vec) Vec {
 		return v
 	}
 	// See https://github.com/mrdoob/three.js/blob/019fa1ad671a1ffcf9be5828efd518fb06575c2b/src/math/Vector3.js#L263.
-	w := 1 / (a.x30*v.X + a.x31*v.Y + a.x32*v.Z + a.d33 + 1)
+	w := 1.0 / (a.x30*v.X + a.x31*v.Y + a.x32*v.Z + a.d33 + 1)
 	if math.IsInf(w, 0) {
 		return Vec{}
 	}
@@ -163,19 +163,19 @@ func (a Affine) warp(w Warp) Affine {
 
 func (w Warp) shearAffine() Affine {
 	return Affine{
-		d00: w.XX, x01: w.YX, x02: w.ZX,
-		x10: w.XY, d11: w.YY, x12: w.ZY,
-		x20: w.XZ, x21: w.YZ, d33: w.ZZ,
+		d00: w.XX, x01: w.XY, x02: w.XZ,
+		x10: w.YX, d11: w.YY, x12: w.YZ,
+		x20: w.ZX, x21: w.ZY, d22: w.ZZ,
 	}
 }
 
 func warpit() Affine {
-	return Affine{}.AddWarp(Vec{}, Warp{XY: .3})
+	return Affine{}.AddWarp(Vec{}, Warp{XY: .2})
 }
 
 // Mul performs matrix multiplication of affine transforms a and b and returns
 // the result c. This operation is the equivalent of creating a new
-// Affine that first applies a followed by b.
+// Affine that first applies b followed by a.
 func (a Affine) Mul(b Affine) Affine {
 	if a.isIdentity() {
 		return b

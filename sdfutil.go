@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/soypat/sdf"
+	"github.com/soypat/sdf/form3/must3"
 	"gonum.org/v1/gonum/spatial/r3"
 )
 
@@ -58,4 +59,47 @@ func sdfHessian(sdf sdf.SDF3, p Vec, h float64) *Mat {
 		fxy, fyy, fyz,
 		fxz, fyz, fzz,
 	})
+}
+
+type sdftransform struct {
+	sdf sdf.SDF3
+	inv Transformer
+}
+
+func (t sdftransform) Evaluate(v r3.Vec) float64 {
+	vv := Vec(v)
+	return t.sdf.Evaluate(r3.Vec(t.inv.Transform(vv)))
+}
+
+func (t sdftransform) Bounds() r3.Box {
+	var bbt Box
+	bbr3 := t.sdf.Bounds()
+	bb := Box{Min: Vec(bbr3.Min), Max: Vec(bbr3.Max)}
+	bb = bb.Scale(Vec{1.05, 1.05, 1.05})
+	if a, ok := t.inv.(Affine); ok {
+		bbt = a.ApplyBox(bb)
+	} else {
+		bbt = bb.TransformBox(t.inv)
+	}
+	return r3.Box{
+		Min: r3.Vec(bbt.Min),
+		Max: r3.Vec(bbt.Max),
+	}
+}
+
+func csgBasic() (s sdf.SDF3) {
+	const max = 0.03
+	s = must3.Box(r3.Vec(Elem(1)), 0)
+	c := must3.Cylinder(2, .3, 0)
+	cx := sdf.Transform3D(c, sdf.RotateY(math.Pi/2))
+	cz := sdf.Transform3D(c, sdf.RotateX(math.Pi/2))
+	var d sdf.SDF3Diff
+	d = sdf.Difference3D(s, cx)
+	d.SetMax(sdf.MaxPoly(2, max))
+	d = sdf.Difference3D(d, cz)
+	d.SetMax(sdf.MaxPoly(2, max))
+	d = sdf.Difference3D(d, c)
+	d.SetMax(sdf.MaxPoly(2, max))
+	s = sdf.Intersect3D(d, must3.Sphere(.7))
+	return s
 }

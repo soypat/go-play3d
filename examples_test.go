@@ -10,7 +10,10 @@ import (
 	"play/kdtree"
 	"time"
 
+	"github.com/soypat/sdf"
+	"github.com/soypat/sdf/form3/must3"
 	"github.com/soypat/three"
+	"gonum.org/v1/gonum/spatial/r3"
 )
 
 func ExampleClosestTriangleIcosahedron() {
@@ -77,7 +80,6 @@ func ExampleClosestPointOnTriangle() {
 		grp.Add(pointsObj([]Vec{onTri3}, pointColor("gold")))
 
 	}
-	return
 	normieT := canalisTransform(normie).ApplyTriangle(normie)
 	T := canalisTransform(worst)
 	worstT := T.ApplyTriangle(worst)
@@ -86,4 +88,76 @@ func ExampleClosestPointOnTriangle() {
 	grp.Add(triangleOutlines([]Triangle{normie}, lineColor("cyan")))
 	grp.Add(triangleOutlines([]Triangle{normieT}, lineColor("navy")))
 	// return grp.
+}
+
+func ExampleMesh() {
+	grp := three.NewGroup()
+	var s sdf.SDF3
+	grp.Add(three.NewAxesHelper(1))
+	const quality = 150
+	sc := must3.Cylinder(2, .5, .1)
+	s = sc
+	s = sdftransform{
+		sdf: sc,
+		inv: Warp{XY: .1}.shearAffine().Inv(),
+	}
+	s = sdf.Transform3D(s, sdf.Rotate3D(r3.Vec{Z: 1}, math.Pi))
+	s = csgBasic()
+	sbb := s.Bounds()
+	bb := Box{Vec(sbb.Min), Vec(sbb.Max)}
+
+	mainBox := CenteredBox(bb.Center(), bb.Scale(Vec{1.1, 1.1, 1.1}).Size())
+	grp.Add(boxesObj([]Box{mainBox}, lineColor("green")))
+	boxes := boxDivide(mainBox, 10)
+	norms := make([][2]Vec, len(boxes))
+	for i, box := range boxes {
+		const tol = 1e-3
+		c := box.Center()
+		curvature := sdfCurvature(s, c, tol)
+		norms[i] = [2]Vec{c, Add(c, Scale(curvature*1e5, sdfNormal(s, c, tol)))}
+	}
+	mesh := maketmesh(mainBox, .1)
+	// grp.Add(boxesObj(boxes, lineColor("blue")))
+	// grp.Add(linesObj(norms, lineColor("gold")))
+	// grp.Add(boxesObj(mesh.boxes(), lineColor("green")))
+	eval := func(v Vec) float64 { return s.Evaluate(r3.Vec(v)) }
+	nodes, tetras := mesh.meshTetraBCC(eval)
+
+	newtetras := make([][4]int, 0, len(tetras))
+
+	for _, tetra := range tetras {
+		nd := Tetra{nodes[tetra[0]], nodes[tetra[1]], nodes[tetra[2]], nodes[tetra[3]]}
+		// aspect := nd.longestEdge()
+		// evals := [4]float64{eval(nd[0]), eval(nd[1]), eval(nd[2]), eval(nd[3])}
+		if eval(nd[0]) < 0 || eval(nd[1]) < 0 || eval(nd[2]) < 0 || eval(nd[3]) < 0 {
+			newtetras = append(newtetras, tetra)
+		}
+	}
+	omesh := newOptimesh(nodes, newtetras)
+	for iter := 1; iter <= 6; iter++ {
+		scaler := float64(iter) / 6.0
+		boundary := make(map[int]struct{})
+		omesh.foreach(func(i int, on *onode) {
+			d := s.Evaluate(r3.Vec(on.c))
+			if d > 0 {
+				boundary[i] = struct{}{}
+				n := Scale(scaler*d, Unit(sdfNormal(s, on.c, 1e-6)))
+				on.c = Sub(on.c, n)
+			}
+			nodes[i] = on.c
+		})
+		omesh.foreach(func(i int, on *onode) {
+			if _, ok := boundary[i]; ok {
+				// don't smooth boundary nodes.
+				return
+			}
+			var sum Vec
+			for _, conn := range on.connectivity {
+				vi := omesh.nodes[conn].c
+				sum = Add(sum, vi)
+			}
+			on.c = Scale(1/float64(len(on.connectivity)), sum)
+		})
+	}
+	grp.Add(triangleMesh(tetraTriangles(omesh.nodePositions(), omesh.tetras), phongMaterial("orange", 0.5)))
 }
