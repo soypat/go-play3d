@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"sort"
+	"unsafe"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -72,12 +72,209 @@ func main() {
 			}
 		}
 	}
-	e := mat.Eigen{}
-	ok := e.Factorize(Ke, mat.EigenBoth)
-	eigs := e.Values(nil)
-	sort.Sort(byRealMagnitude(eigs))
-	fmt.Println(ok, eigs)
-	fmt.Printf("%f", mat.Formatted(K, mat.FormatMATLAB()))
+
+	modelSize := Vec{X: 10, Y: 10, Z: 10}
+	// RUC surfaces
+	var sx, sX, sy, sY, sz, sZ []int
+	// RUC edges.
+	var exy, eXy, exY, eXY, exz, eXz, exZ, eXZ, eyz, eYz, eyZ, eYZ []int
+	// RUC corners.
+	var cxyz, cXyz, cxYz, cXYz, cxyZ, cXyZ, cxYZ, cXYZ int
+	for i, n := range nodes {
+		// Sure this loop is ugly, but it should consume less energy
+		// than having multiple loops since less compares. Save the trees?
+		xeq0 := n.X == 0
+		yeq0 := n.Y == 0
+		zeq0 := n.Z == 0
+		xeqL := n.X == modelSize.X
+		yeqL := n.Y == modelSize.Y
+		zeqL := n.Z == modelSize.Z
+		if xeq0 {
+			sx = append(sx, i)
+			if yeq0 {
+				exy = append(exy, i)
+			} else if yeqL {
+				exY = append(exY, i)
+			}
+			if zeq0 {
+				exz = append(exz, i)
+			} else if zeqL {
+				exZ = append(exZ, i)
+			}
+		}
+		if xeqL {
+			sX = append(sX, i)
+		}
+		if yeq0 {
+			sy = append(sy, i)
+			if xeqL {
+				eXy = append(eXy, i)
+			}
+			if zeq0 {
+				eyz = append(eyz, i)
+			} else if zeqL {
+				eyZ = append(eyZ, i)
+			}
+		}
+		if yeqL {
+			sY = append(sY, i)
+			if xeqL {
+				eXY = append(eXY, i)
+			}
+			if zeq0 {
+				eYz = append(eYz, i)
+			} else if zeqL {
+				eYZ = append(eYZ, i)
+			}
+		}
+		if zeq0 {
+			sz = append(sz, i)
+			if xeqL {
+				eXz = append(eXz, i)
+			}
+			if yeq0 && xeq0 {
+				cxyz = i
+			} else if yeq0 && xeqL {
+				cXyz = i
+			} else if yeqL && xeq0 {
+				cxYz = i
+			} else if yeqL && xeqL {
+				cXYz = i
+			}
+		}
+		if zeqL {
+			sZ = append(sZ, i)
+			if xeqL {
+				eXZ = append(eXZ, i)
+			}
+			if yeq0 && xeq0 {
+				cxyZ = i
+			} else if yeq0 && xeqL {
+				cXyZ = i
+			} else if yeqL && xeq0 {
+				cxYZ = i
+			} else if yeqL && xeqL {
+				cXYZ = i
+			}
+		}
+	}
+	surfSize := len(sx) + len(sX) + len(sy) + len(sY) + len(sz) + len(sZ)
+	// lagrange := surfSize +
+	// 	len(exy) + len(eXy) + len(exY) + len(eXY) + len(exz) + len(eXz) +
+	// 	len(exZ) + len(eXZ) + len(eyz) + len(eYz) + len(eyZ) + len(eYZ) + 1
+	rows := 0
+	NN := mat.NewDense(surfSize+1, 3*len(nodes), nil)
+	// X Surface displacement constraint.
+	for _, ix := range sx {
+		p := nodes[ix]
+		for _, iX := range sX {
+			P := nodes[iX]
+			if p.Z == P.Z && p.Y == P.Y && 0 < p.Z && p.Z < modelSize.Z &&
+				0 < p.Y && p.Y < modelSize.Y {
+				// Set displacement constraint on opposite nodes.
+				constrainDisplacements(NN, rows, ix, iX)
+				rows++
+			}
+		}
+	}
+	// Y Surface displacement constraint.
+	for _, iy := range sy {
+		p := nodes[iy]
+		for _, iY := range sY {
+			P := nodes[iY]
+			if p.Z == P.Z && p.X == P.X && 0 < p.Z && p.Z < modelSize.Z &&
+				0 < p.X && p.X < modelSize.X {
+				// Set displacement constraint on opposite nodes.
+				constrainDisplacements(NN, rows, iy, iY)
+				rows++
+			}
+		}
+	}
+	// Z Surface displacement constraint.
+	for _, iz := range sz {
+		p := nodes[iz]
+		for _, iZ := range sZ {
+			P := nodes[iZ]
+			if p.Y == P.Y && p.X == P.X && 0 < p.X && p.X < modelSize.X &&
+				0 < p.Y && p.Y < modelSize.Y {
+				// Set displacement constraint on opposite nodes.
+				constrainDisplacements(NN, rows, iz, iZ)
+				rows++
+			}
+		}
+	}
+	// Constrain edges.
+	var dim = func(r rune) int { return int(r - 'X') } // returns 0,1,2 with arguments 'X', 'Y' and 'Z'
+	rows = constrainRUCEdge(NN, nodes, exZ, eXz, rows, dim('Y'), modelSize)
+	rows = constrainRUCEdge(NN, nodes, exz, eXZ, rows, dim('Y'), modelSize)
+	rows = constrainRUCEdge(NN, nodes, exy, eXY, rows, dim('Z'), modelSize)
+	rows = constrainRUCEdge(NN, nodes, exY, eXy, rows, dim('Z'), modelSize)
+	rows = constrainRUCEdge(NN, nodes, eyZ, eYz, rows, dim('X'), modelSize)
+	rows = constrainRUCEdge(NN, nodes, eyz, eYZ, rows, dim('X'), modelSize)
+	// Constrain corners.
+	constrainDisplacements(NN, rows, cXYz, cxyZ)
+	rows++
+	constrainDisplacements(NN, rows, cxyz, cXYZ)
+	rows++
+	constrainDisplacements(NN, rows, cxYZ, cXyz)
+	rows++
+	constrainDisplacements(NN, rows, cXyZ, cxYz)
+	rows++
+
+	NN.Set(rows*3, cXyz*3, -1)
+	NN.Set(rows*3, cxYZ*3, 1)
+	NN.Set(rows*3+1, cxyz*3+1, -1)
+	NN.Set(rows*3+1, cXYZ*3+1, 1)
+	NN.Set(rows*3+2, cxyz*3+2, -1)
+	NN.Set(rows*3+2, cXYZ*3+2, 1)
+	fmt.Println(NN)
+	_ = sx
+	_ = sX
+	_, _, _, _, _, _, _, _ = cxyz, cXyz, cxYz, cXYz, cxyZ, cXyZ, cxYZ, cXYZ
+}
+
+func findNodes(nodes []Vec, f func(n Vec) bool) (idxs []int) {
+	for i := range nodes {
+		if f(nodes[i]) {
+			idxs = append(idxs, i)
+		}
+	}
+	return idxs
+}
+
+func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim int, modelSize Vec) int {
+	if crossDim < 0 || crossDim > 2 {
+		panic("bad cross dimension (0,1,2 corresponds to X,Y,Z")
+	}
+	const (
+		VecSize   = unsafe.Sizeof(Vec{})
+		VecOffset = unsafe.Alignof(Vec{}.X)
+	)
+	nodePtr := uintptr(unsafe.Pointer(&nodes[0]))
+	offset := uintptr(VecOffset * uintptr(crossDim))
+	modelPtr := uintptr(unsafe.Pointer(&modelSize))
+	modelDim := *(*float64)(unsafe.Pointer(modelPtr + offset))
+	for _, i1 := range e1 {
+		// very unsafe. very sharp.
+		pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i1) + offset))
+		for _, i2 := range e2 {
+			Pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i2) + offset))
+			if pdim == Pdim && 0 < pdim && pdim < modelDim {
+				constrainDisplacements(NN, rows, i1, i2)
+				rows++
+			}
+		}
+	}
+	return rows
+}
+
+func constrainDisplacements(NN *mat.Dense, r, i1, i2 int) {
+	NN.Set(r*3, i1*3, -1)
+	NN.Set(r*3, i2*3, 1)
+	NN.Set(r*3+1, i1*3+1, -1)
+	NN.Set(r*3+1, i2*3+1, 1)
+	NN.Set(r*3+2, i1*3+2, -1)
+	NN.Set(r*3+2, i2*3+2, 1)
 }
 
 // func convertToRenderTriangles(t []Triangle) []render.Triangle3 {
@@ -88,3 +285,12 @@ func main() {
 // 	// }
 // 	// return c
 // }
+
+/*
+ 7388.1         3806         3806            0            0            0
+ 3806       7388.1         3806            0            0            0
+ 3806         3806       7388.1            0            0            0
+ 0            0            0         1791            0            0
+ 0            0            0            0         1791            0
+ 0            0            0            0            0         1791
+*/

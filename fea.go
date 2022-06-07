@@ -213,3 +213,28 @@ func (b byRealMagnitude) Swap(i, j int) {
 	b[i], b[j] = b[j], b[i]
 }
 func (b byRealMagnitude) Len() int { return len(b) }
+
+func imposedDisplacementForRUC(rucCase int, displacement float64) *mat.Dense {
+	var dx, dy, dz, dxy, dxz, dyz float64
+	switch rucCase {
+	case 0:
+		dx = displacement
+	case 1:
+		dy = displacement
+	case 2:
+		dz = displacement
+	case 3:
+		dxy = displacement / 2
+	case 4:
+		dxz = displacement / 2
+	case 5:
+		dyz = displacement / 2
+	default:
+		panic("invalid RUC case")
+	}
+	return mat.NewDense(3, 3, []float64{
+		dx, dxy, dxz,
+		dxy, dy, dyz,
+		dxz, dyz, dz,
+	})
+}
