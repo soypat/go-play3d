@@ -238,3 +238,37 @@ func imposedDisplacementForRUC(rucCase int, displacement float64) *mat.Dense {
 		dxz, dyz, dz,
 	})
 }
+
+func booleanIndexing(m mat.Matrix, inv bool, br, bc []bool) subMat {
+	r, c := m.Dims()
+	if len(br) != r || len(bc) != c {
+		panic("bad dim")
+	}
+	sm := subMat{
+		ridx: make([]int, 0, r),
+		cidx: make([]int, 0, c),
+		m:    m,
+	}
+	for i, b := range br {
+		if b != inv {
+			sm.ridx = append(sm.ridx, i)
+		}
+	}
+	for i, b := range bc {
+		if b != inv {
+			sm.cidx = append(sm.cidx, i)
+		}
+	}
+	return sm
+}
+
+type subMat struct {
+	ridx, cidx []int
+	m          mat.Matrix
+}
+
+func (bm subMat) At(i, j int) float64 { return bm.m.At(bm.ridx[i], bm.cidx[j]) }
+func (bm subMat) Dims() (int, int)    { return len(bm.ridx), len(bm.cidx) }
+func (bm subMat) T() mat.Matrix {
+	return mat.Transpose{Matrix: bm}
+}

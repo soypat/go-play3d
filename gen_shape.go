@@ -165,6 +165,7 @@ func main() {
 	rows := 0
 	NN := mat.NewDense(surfSize+1, 3*len(nodes), nil)
 	// X Surface displacement constraint.
+	var nsx, nsy, nsz int
 	for _, ix := range sx {
 		p := nodes[ix]
 		for _, iX := range sX {
@@ -174,6 +175,7 @@ func main() {
 				// Set displacement constraint on opposite nodes.
 				constrainDisplacements(NN, rows, ix, iX)
 				rows++
+				nsx++
 			}
 		}
 	}
@@ -187,6 +189,7 @@ func main() {
 				// Set displacement constraint on opposite nodes.
 				constrainDisplacements(NN, rows, iy, iY)
 				rows++
+				nsy++
 			}
 		}
 	}
@@ -200,17 +203,24 @@ func main() {
 				// Set displacement constraint on opposite nodes.
 				constrainDisplacements(NN, rows, iz, iZ)
 				rows++
+				nsz++
 			}
 		}
 	}
 	// Constrain edges.
 	var dim = func(r rune) int { return int(r - 'X') } // returns 0,1,2 with arguments 'X', 'Y' and 'Z'
-	rows = constrainRUCEdge(NN, nodes, exZ, eXz, rows, dim('Y'), modelSize)
-	rows = constrainRUCEdge(NN, nodes, exz, eXZ, rows, dim('Y'), modelSize)
-	rows = constrainRUCEdge(NN, nodes, exy, eXY, rows, dim('Z'), modelSize)
-	rows = constrainRUCEdge(NN, nodes, exY, eXy, rows, dim('Z'), modelSize)
-	rows = constrainRUCEdge(NN, nodes, eyZ, eYz, rows, dim('X'), modelSize)
-	rows = constrainRUCEdge(NN, nodes, eyz, eYZ, rows, dim('X'), modelSize)
+	ne1 := constrainRUCEdge(NN, nodes, exZ, eXz, rows, dim('Y'), modelSize)
+	rows += ne1
+	ne2 := constrainRUCEdge(NN, nodes, exz, eXZ, rows, dim('Y'), modelSize)
+	rows += ne2
+	ne3 := constrainRUCEdge(NN, nodes, exy, eXY, rows, dim('Z'), modelSize)
+	rows += ne3
+	ne4 := constrainRUCEdge(NN, nodes, exY, eXy, rows, dim('Z'), modelSize)
+	rows += ne4
+	ne5 := constrainRUCEdge(NN, nodes, eyZ, eYz, rows, dim('X'), modelSize)
+	rows += ne5
+	ne6 := constrainRUCEdge(NN, nodes, eyz, eYZ, rows, dim('X'), modelSize)
+	rows += ne6
 	// Constrain corners.
 	constrainDisplacements(NN, rows, cXYz, cxyZ)
 	rows++
@@ -220,13 +230,85 @@ func main() {
 	rows++
 	constrainDisplacements(NN, rows, cXyZ, cxYz)
 	rows++
+	r, _ := NN.Dims()
+	if rows*3 != r {
+		panic(r)
+	}
+	imposedLoads := make([]float64, (nsx+nsy+nsz)*3)
 
-	NN.Set(rows*3, cXyz*3, -1)
-	NN.Set(rows*3, cxYZ*3, 1)
-	NN.Set(rows*3+1, cxyz*3+1, -1)
-	NN.Set(rows*3+1, cXYZ*3+1, 1)
-	NN.Set(rows*3+2, cxyz*3+2, -1)
-	NN.Set(rows*3+2, cXYZ*3+2, 1)
+	for rucCase := 0; rucCase < 1; rucCase++ {
+		rows = 0
+		disp := imposedDisplacementForRUC(rucCase, 0.1)
+		dx := disp.At(0, 0)
+		dy := disp.At(1, 1)
+		dz := disp.At(2, 2)
+		dxy := disp.At(0, 1)
+		dxz := disp.At(0, 2)
+		dyz := disp.At(1, 2)
+		var loads [3]float64
+		// Surface load imposition (Lagrange).
+		loads = [3]float64{dx * modelSize.X, dxy * modelSize.X, dxz * modelSize.X}
+		for i := 0; i < nsx; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{dxy * modelSize.Y, dy * modelSize.Y, dyz * modelSize.Y}
+		for i := 0; i < nsy; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{dxz * modelSize.Z, dyz * modelSize.Z, dz * modelSize.Z}
+		for i := 0; i < nsz; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		// Edge load imposition (Lagrange).
+		loads = [3]float64{modelSize.X*dx - modelSize.Z*dxz, modelSize.X*dxy - modelSize.Z*dyz, modelSize.X*dxz - modelSize.Z*dz}
+		for i := 0; i < ne1; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{modelSize.X*dx + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Z*dz}
+		for i := 0; i < ne2; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy, modelSize.X*dxy + modelSize.Y*dy, modelSize.X*dxz + modelSize.Y*dyz}
+		for i := 0; i < ne3; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{modelSize.X*dx - modelSize.Y*dxy, modelSize.X*dxy - modelSize.Y*dy, modelSize.X*dxz - modelSize.Y*dyz}
+		for i := 0; i < ne4; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{modelSize.Y*dxy - modelSize.Z*dxz, modelSize.Y*dy - modelSize.Z*dyz, modelSize.Y*dyz - modelSize.Z*dz}
+		for i := 0; i < ne5; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		loads = [3]float64{modelSize.Y*dxy + modelSize.Z*dxz, modelSize.Y*dy + modelSize.Z*dyz, modelSize.Y*dyz + modelSize.Z*dz}
+		for i := 0; i < ne6; i++ {
+			copy(imposedLoads[rows*3:], loads[:])
+			rows++
+		}
+		// Corner load imposition (Lagrange).
+		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy - modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy - modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz - modelSize.Z*dz}
+		rows += copy(imposedLoads[rows*3:], loads[:])
+		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
+		rows += copy(imposedLoads[rows*3:], loads[:])
+		loads = [3]float64{-modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, -modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, -modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
+		rows += copy(imposedLoads[rows*3:], loads[:])
+		loads = [3]float64{modelSize.X*dx - modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy - modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz - modelSize.Y*dyz + modelSize.Z*dz}
+		rows += copy(imposedLoads[rows*3:], loads[:])
+	}
+	freeDofs := make([]bool, 3*len(nodes))
+	// set last node to fixed
+	freeDofs[len(freeDofs)-1] = true
+	freeDofs[len(freeDofs)-2] = true
+	freeDofs[len(freeDofs)-3] = true
+	// KG := booleanIndexing(K, true, freeDofs, freeDofs)
 	fmt.Println(NN)
 	_ = sx
 	_ = sX
@@ -242,7 +324,7 @@ func findNodes(nodes []Vec, f func(n Vec) bool) (idxs []int) {
 	return idxs
 }
 
-func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim int, modelSize Vec) int {
+func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim int, modelSize Vec) (proc int) {
 	if crossDim < 0 || crossDim > 2 {
 		panic("bad cross dimension (0,1,2 corresponds to X,Y,Z")
 	}
@@ -250,6 +332,7 @@ func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim i
 		VecSize   = unsafe.Sizeof(Vec{})
 		VecOffset = unsafe.Alignof(Vec{}.X)
 	)
+	rowsStart := rows
 	nodePtr := uintptr(unsafe.Pointer(&nodes[0]))
 	offset := uintptr(VecOffset * uintptr(crossDim))
 	modelPtr := uintptr(unsafe.Pointer(&modelSize))
@@ -265,7 +348,7 @@ func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim i
 			}
 		}
 	}
-	return rows
+	return rows - rowsStart
 }
 
 func constrainDisplacements(NN *mat.Dense, r, i1, i2 int) {
