@@ -3,10 +3,14 @@ package main
 import (
 	_ "embed"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"math"
+	"os"
 	"strconv"
 	"strings"
+	"time"
+	"unsafe"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -238,8 +242,74 @@ func imposedDisplacementForRUC(rucCase int, displacement float64) *mat.Dense {
 		dxz, dyz, dz,
 	})
 }
+func findNodes(nodes []Vec, f func(n Vec) bool) (idxs []int) {
+	for i := range nodes {
+		if f(nodes[i]) {
+			idxs = append(idxs, i)
+		}
+	}
+	return idxs
+}
 
-func booleanIndexing(m mat.Matrix, inv bool, br, bc []bool) subMat {
+func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim int, modelSize Vec) (proc int) {
+	if crossDim < 0 || crossDim > 2 {
+		panic("bad cross dimension (0,1,2 corresponds to X,Y,Z")
+	}
+	const (
+		VecSize   = unsafe.Sizeof(Vec{})
+		VecOffset = unsafe.Alignof(Vec{}.X)
+	)
+	rowsStart := rows
+	nodePtr := uintptr(unsafe.Pointer(&nodes[0]))
+	offset := uintptr(VecOffset * uintptr(crossDim))
+	modelPtr := uintptr(unsafe.Pointer(&modelSize))
+	modelDim := *(*float64)(unsafe.Pointer(modelPtr + offset))
+	for _, i1 := range e1 {
+		// very unsafe. very sharp.
+		pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i1) + offset))
+		for _, i2 := range e2 {
+			Pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i2) + offset))
+			if pdim == Pdim && 0 < pdim && pdim < modelDim {
+				constrainDisplacements(NN, rows, i1, i2)
+				rows++
+			}
+		}
+	}
+	return rows - rowsStart
+}
+
+func constrainDisplacements(NN *mat.Dense, r, i1, i2 int) {
+	NN.Set(r*3, i1*3, -1)
+	NN.Set(r*3, i2*3, 1)
+	NN.Set(r*3+1, i1*3+1, -1)
+	NN.Set(r*3+1, i2*3+1, 1)
+	NN.Set(r*3+2, i1*3+2, -1)
+	NN.Set(r*3+2, i2*3+2, 1)
+}
+
+func booleanSetVec(dst *mat.VecDense, src mat.Vector, inv bool, br []bool) {
+	if len(br) != dst.Len() {
+		panic("bad []bool len. must match dst")
+	}
+	sum := 0
+	for i := range br {
+		if br[i] != inv {
+			sum++
+		}
+	}
+	if sum != src.Len() {
+		panic("amount of true values in br must match length of src")
+	}
+	sum = 0
+	for i := range br {
+		if br[i] != inv {
+			dst.SetVec(i, src.AtVec(sum))
+			sum++
+		}
+	}
+}
+
+func booleanIndexing(m mat.Matrix, inv bool, br, bc []bool) *subMat {
 	r, c := m.Dims()
 	if len(br) != r || len(bc) != c {
 		panic("bad dim")
@@ -259,7 +329,7 @@ func booleanIndexing(m mat.Matrix, inv bool, br, bc []bool) subMat {
 			sm.cidx = append(sm.cidx, i)
 		}
 	}
-	return sm
+	return &sm
 }
 
 type subMat struct {
@@ -267,8 +337,92 @@ type subMat struct {
 	m          mat.Matrix
 }
 
-func (bm subMat) At(i, j int) float64 { return bm.m.At(bm.ridx[i], bm.cidx[j]) }
-func (bm subMat) Dims() (int, int)    { return len(bm.ridx), len(bm.cidx) }
-func (bm subMat) T() mat.Matrix {
+func (bm *subMat) At(i, j int) float64 { return bm.m.At(bm.ridx[i], bm.cidx[j]) }
+func (bm *subMat) AtVec(i int) float64 { return bm.m.At(bm.ridx[i], 0) }
+func (bm *subMat) Len() int            { return len(bm.ridx) }
+func (bm *subMat) Dims() (int, int)    { return len(bm.ridx), len(bm.cidx) }
+func (bm *subMat) T() mat.Matrix {
 	return mat.Transpose{Matrix: bm}
+}
+
+func copyBlocks(dst *mat.Dense, rows, cols int, src []mat.Matrix) error {
+	if len(src) != rows*cols {
+		return mat.ErrShape
+	}
+	var tr, tc int
+	for i := 0; i < rows; i++ {
+		r, _ := src[i*cols].Dims()
+		tr += r
+	}
+	for j := 0; j < cols; j++ {
+		_, c := src[j].Dims()
+		tc += c
+	}
+	dst.ReuseAs(tr, tc)
+
+	var br int
+	for i := 0; i < rows; i++ {
+		var bc int
+		h, _ := src[i*cols].Dims()
+		for j := 0; j < cols; j++ {
+			r, c := src[i*cols+j].Dims()
+			if r != h {
+				return fmt.Errorf("matrix at %d,%d is wrong height: %d != %d:  %w", i, j, r, h, mat.ErrShape)
+			}
+			if i != 0 {
+				_, w := src[j].Dims()
+				if c != w {
+					return fmt.Errorf("matrix at %d,%d is wrong width: %d != %d:  %w", i, j, c, w, mat.ErrShape)
+				}
+			}
+			dst.Slice(br, br+r, bc, bc+c).(*mat.Dense).Copy(src[i*cols+j])
+			bc += c
+		}
+		br += h
+	}
+	return nil
+}
+
+type eye int
+
+func (m eye) At(i, j int) float64 {
+	if i == j {
+		return 1
+	}
+	return 0
+}
+func (m eye) Dims() (r, c int) { return int(m), int(m) }
+func (m eye) T() mat.Matrix    { return m }
+
+type zero struct{ r, c int }
+
+func (m zero) At(i, j int) float64 { return 0 }
+func (m zero) Dims() (r, c int)    { return m.r, m.c }
+func (m zero) T() mat.Matrix       { return zero{m.c, m.r} }
+
+func ExampleDense_copyBlocks() {
+	var m mat.Dense
+	r := mat.NewDense(5, 3, []float64{
+		1, 2, 3,
+		4, 5, 6,
+		7, 8, 9,
+		10, 11, 12,
+		13, 14, 15,
+	})
+	err := copyBlocks(&m, 2, 3, []mat.Matrix{
+		eye(5), zero{5, 3}, r,
+		zero{3, 5}, eye(3), zero{3, 3},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(mat.Formatted(&m))
+}
+
+func saveMatToFile(filename string, m mat.Matrix) {
+	fp, _ := os.Create(filename)
+	tstart := time.Now()
+	defer fp.Close()
+	fmt.Fprintf(fp, "%0.16g", mat.Formatted(m, mat.FormatMATLAB()))
+	fmt.Println("writing "+filename+" took ", time.Since(tstart))
 }

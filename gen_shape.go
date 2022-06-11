@@ -4,8 +4,8 @@ package main
 
 import (
 	"fmt"
-	"unsafe"
 
+	"gonum.org/v1/gonum/blas/blas64"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -34,12 +34,11 @@ func main() {
 	Ke := mat.NewDense(3*8, 3*8, nil)
 	aux1 := mat.NewDense(3*8, 6, nil)
 	aux2 := mat.NewDense(3*8, 3*8, nil)
-	K := mat.NewDense(3*len(nodes), 3*len(nodes), nil)
+	Ksolid := mat.NewDense(3*len(nodes), 3*len(nodes), nil)
 	for iele := range elems {
 		Ke.Zero()
 		enodi := elems[iele][:]
 		storeElemNode(enod, nodes, enodi)
-		storeElemDofs(edofs, enodi, 3)
 		for ipg := range upg {
 			jac.Mul(dN[ipg], denseFromR3(enod))
 			dNxyz.Solve(jac, dN[ipg])
@@ -58,21 +57,22 @@ func main() {
 				B.Set(5, i*3, dNxyz.At(2, i))
 				B.Set(5, i*3+2, dNxyz.At(0, i))
 			}
+			// Ke = Ke + Bᵀ*C*B * weight*det(J)
 			aux1.Mul(B.T(), Cm)
 			aux2.Mul(aux1, B)
 			aux2.Scale(jac.Det()*wpg[ipg], aux2)
 			Ke.Add(Ke, aux2)
 		}
 		r, c := Ke.Dims()
+		storeElemDofs(edofs, enodi, 3)
 		for i := 0; i < r; i++ {
 			ei := edofs[i]
 			for j := 0; j < c; j++ {
 				ej := edofs[j]
-				K.Set(ei, ej, K.At(ei, ej)+Ke.At(i, j))
+				Ksolid.Set(ei, ej, Ksolid.At(ei, ej)+Ke.At(i, j))
 			}
 		}
 	}
-
 	modelSize := Vec{X: 10, Y: 10, Z: 10}
 	// RUC surfaces
 	var sx, sX, sy, sY, sz, sZ []int
@@ -167,9 +167,9 @@ func main() {
 	// X Surface displacement constraint.
 	var nsx, nsy, nsz int
 	for _, ix := range sx {
-		p := nodes[ix]
+		p := nodes[ix] //34
 		for _, iX := range sX {
-			P := nodes[iX]
+			P := nodes[iX] //28
 			if p.Z == P.Z && p.Y == P.Y && 0 < p.Z && p.Z < modelSize.Z &&
 				0 < p.Y && p.Y < modelSize.Y {
 				// Set displacement constraint on opposite nodes.
@@ -222,142 +222,230 @@ func main() {
 	ne6 := constrainRUCEdge(NN, nodes, eyz, eYZ, rows, dim('X'), modelSize)
 	rows += ne6
 	// Constrain corners.
-	constrainDisplacements(NN, rows, cXYz, cxyZ)
+	constrainDisplacements(NN, rows, cxyZ, cXYz)
 	rows++
 	constrainDisplacements(NN, rows, cxyz, cXYZ)
 	rows++
-	constrainDisplacements(NN, rows, cxYZ, cXyz)
+	constrainDisplacements(NN, rows, cXyz, cxYZ)
 	rows++
-	constrainDisplacements(NN, rows, cXyZ, cxYz)
+	constrainDisplacements(NN, rows, cxYz, cXyZ)
 	rows++
-	r, _ := NN.Dims()
-	if rows*3 != r {
-		panic(r)
-	}
-	imposedLoads := make([]float64, (nsx+nsy+nsz)*3)
 
-	for rucCase := 0; rucCase < 1; rucCase++ {
+	// calculate amount of dofs with lagrange equations.
+	dofsLagrange, _ := NN.Dims()
+	dofsSolid, _ := Ksolid.Dims()
+	var Kglobal mat.Dense
+	err := copyBlocks(&Kglobal, 2, 2, []mat.Matrix{
+		Ksolid, NN.T(),
+		NN, zero{dofsLagrange, dofsLagrange},
+	})
+	if err != nil {
+		panic(err)
+	}
+	ndofs, _ := Kglobal.Dims()
+	fixedDofs := make([]bool, ndofs)
+	// set last node to fixed
+	fixedDofs[len(nodes)*3-1] = true
+	fixedDofs[len(nodes)*3-2] = true
+	fixedDofs[len(nodes)*3-3] = true
+	loads := make([]float64, ndofs)
+	nlagrangeDofs := (nsx + nsy + nsz + ne1 + ne2 + ne3 + ne4 + ne5 + ne6 + 4) * 3
+	imposedLoads := loads[len(loads)-nlagrangeDofs:]
+	Cruc := mat.NewDense(6, 6, nil)
+	for rucCase := 0; rucCase < 6; rucCase++ {
 		rows = 0
-		disp := imposedDisplacementForRUC(rucCase, 0.1)
-		dx := disp.At(0, 0)
-		dy := disp.At(1, 1)
-		dz := disp.At(2, 2)
-		dxy := disp.At(0, 1)
-		dxz := disp.At(0, 2)
-		dyz := disp.At(1, 2)
-		var loads [3]float64
+		imposedDisp := imposedDisplacementForRUC(rucCase, 0.1)
+		dx := imposedDisp.At(0, 0)
+		dy := imposedDisp.At(1, 1)
+		dz := imposedDisp.At(2, 2)
+		dxy := imposedDisp.At(0, 1)
+		dxz := imposedDisp.At(0, 2)
+		dyz := imposedDisp.At(1, 2)
+		var imposed [3]float64
 		// Surface load imposition (Lagrange).
-		loads = [3]float64{dx * modelSize.X, dxy * modelSize.X, dxz * modelSize.X}
+		imposed = [3]float64{dx * modelSize.X, dxy * modelSize.X, dxz * modelSize.X}
 		for i := 0; i < nsx; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{dxy * modelSize.Y, dy * modelSize.Y, dyz * modelSize.Y}
+		imposed = [3]float64{dxy * modelSize.Y, dy * modelSize.Y, dyz * modelSize.Y}
 		for i := 0; i < nsy; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{dxz * modelSize.Z, dyz * modelSize.Z, dz * modelSize.Z}
+		imposed = [3]float64{dxz * modelSize.Z, dyz * modelSize.Z, dz * modelSize.Z}
 		for i := 0; i < nsz; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
 		// Edge load imposition (Lagrange).
-		loads = [3]float64{modelSize.X*dx - modelSize.Z*dxz, modelSize.X*dxy - modelSize.Z*dyz, modelSize.X*dxz - modelSize.Z*dz}
+		imposed = [3]float64{modelSize.X*dx - modelSize.Z*dxz, modelSize.X*dxy - modelSize.Z*dyz, modelSize.X*dxz - modelSize.Z*dz}
 		for i := 0; i < ne1; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{modelSize.X*dx + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Z*dz}
+		imposed = [3]float64{modelSize.X*dx + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Z*dz}
 		for i := 0; i < ne2; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy, modelSize.X*dxy + modelSize.Y*dy, modelSize.X*dxz + modelSize.Y*dyz}
+		imposed = [3]float64{modelSize.X*dx + modelSize.Y*dxy, modelSize.X*dxy + modelSize.Y*dy, modelSize.X*dxz + modelSize.Y*dyz}
 		for i := 0; i < ne3; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{modelSize.X*dx - modelSize.Y*dxy, modelSize.X*dxy - modelSize.Y*dy, modelSize.X*dxz - modelSize.Y*dyz}
+		imposed = [3]float64{modelSize.X*dx - modelSize.Y*dxy, modelSize.X*dxy - modelSize.Y*dy, modelSize.X*dxz - modelSize.Y*dyz}
 		for i := 0; i < ne4; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{modelSize.Y*dxy - modelSize.Z*dxz, modelSize.Y*dy - modelSize.Z*dyz, modelSize.Y*dyz - modelSize.Z*dz}
+		imposed = [3]float64{modelSize.Y*dxy - modelSize.Z*dxz, modelSize.Y*dy - modelSize.Z*dyz, modelSize.Y*dyz - modelSize.Z*dz}
 		for i := 0; i < ne5; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
-		loads = [3]float64{modelSize.Y*dxy + modelSize.Z*dxz, modelSize.Y*dy + modelSize.Z*dyz, modelSize.Y*dyz + modelSize.Z*dz}
+		imposed = [3]float64{modelSize.Y*dxy + modelSize.Z*dxz, modelSize.Y*dy + modelSize.Z*dyz, modelSize.Y*dyz + modelSize.Z*dz}
 		for i := 0; i < ne6; i++ {
-			copy(imposedLoads[rows*3:], loads[:])
+			copy(imposedLoads[rows*3:], imposed[:])
 			rows++
 		}
 		// Corner load imposition (Lagrange).
-		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy - modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy - modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz - modelSize.Z*dz}
-		rows += copy(imposedLoads[rows*3:], loads[:])
-		loads = [3]float64{modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
-		rows += copy(imposedLoads[rows*3:], loads[:])
-		loads = [3]float64{-modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, -modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, -modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
-		rows += copy(imposedLoads[rows*3:], loads[:])
-		loads = [3]float64{modelSize.X*dx - modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy - modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz - modelSize.Y*dyz + modelSize.Z*dz}
-		rows += copy(imposedLoads[rows*3:], loads[:])
-	}
-	freeDofs := make([]bool, 3*len(nodes))
-	// set last node to fixed
-	freeDofs[len(freeDofs)-1] = true
-	freeDofs[len(freeDofs)-2] = true
-	freeDofs[len(freeDofs)-3] = true
-	// KG := booleanIndexing(K, true, freeDofs, freeDofs)
-	fmt.Println(NN)
-	_ = sx
-	_ = sX
-	_, _, _, _, _, _, _, _ = cxyz, cXyz, cxYz, cXYz, cxyZ, cXyZ, cxYZ, cXYZ
-}
-
-func findNodes(nodes []Vec, f func(n Vec) bool) (idxs []int) {
-	for i := range nodes {
-		if f(nodes[i]) {
-			idxs = append(idxs, i)
+		imposed = [3]float64{modelSize.X*dx + modelSize.Y*dxy - modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy - modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz - modelSize.Z*dz}
+		copy(imposedLoads[rows*3:], imposed[:])
+		rows++
+		imposed = [3]float64{modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
+		copy(imposedLoads[rows*3:], imposed[:])
+		rows++
+		imposed = [3]float64{-modelSize.X*dx + modelSize.Y*dxy + modelSize.Z*dxz, -modelSize.X*dxy + modelSize.Y*dy + modelSize.Z*dyz, -modelSize.X*dxz + modelSize.Y*dyz + modelSize.Z*dz}
+		copy(imposedLoads[rows*3:], imposed[:])
+		rows++
+		imposed = [3]float64{modelSize.X*dx - modelSize.Y*dxy + modelSize.Z*dxz, modelSize.X*dxy - modelSize.Y*dy + modelSize.Z*dyz, modelSize.X*dxz - modelSize.Y*dyz + modelSize.Z*dz}
+		copy(imposedLoads[rows*3:], imposed[:])
+		// Solve for displacements.
+		var freeDisplacements mat.VecDense
+		freeDisplacements.SolveVec(
+			booleanIndexing(&Kglobal, true, fixedDofs, fixedDofs),
+			booleanIndexing(mat.NewVecDense(ndofs, loads), true, fixedDofs, []bool{false}))
+		displacements := mat.NewVecDense(ndofs, nil)
+		booleanSetVec(displacements, &freeDisplacements, true, fixedDofs)
+		// fmt.Println(displacements.SliceVec(0, dofsSolid))
+		saveMatToFile("disp.txt", displacements)
+		// Extract stresses.
+		// Node positions on local element coordinates.
+		unod := []Vec{
+			{X: -1, Y: -1, Z: -1},
+			{X: 1, Y: -1, Z: -1},
+			{X: 1, Y: 1, Z: -1},
+			{X: -1, Y: 1, Z: -1},
+			{X: -1, Y: -1, Z: 1},
+			{X: 1, Y: -1, Z: 1},
+			{X: 1, Y: 1, Z: 1},
+			{X: -1, Y: 1, Z: 1},
 		}
-	}
-	return idxs
-}
+		for inod, nod := range unod {
+			N[inod] = mat.NewVecDense(8, h8FormFuncs(nod.X, nod.Y, nod.Z))
+			dN[inod] = mat.NewDense(3, 8, h8FormFuncsDiff(nod.X, nod.Y, nod.Z))
+		}
+		// denseUnod := denseFromR3(unod)
+		Nelem := len(elems)
+		Nnodelem := len(elems[0])
+		Nstressnod := 6
+		var auxVec mat.VecDense
+		strain := make([]float64, Nelem*Nnodelem*Nstressnod)
+		elemDisplacements := &subMat{ridx: edofs, cidx: []int{0}, m: displacements}
+		for iele := range elems {
+			enodi := elems[iele][:]
+			storeElemNode(enod, nodes, enodi)
+			storeElemDofs(edofs, enodi, 3) // This modifies elemDisplacements.
+			if iele == len(elems)-1 {
+				println("last")
+			}
+			for inode := range unod {
+				jac.Mul(dN[inode], denseFromR3(enod))
+				dNxyz.Solve(jac, dN[inode])
+				for i := 0; i < 8; i++ {
+					// First three rows.
+					B.Set(0, i*3, dNxyz.At(0, i))
+					B.Set(1, i*3+1, dNxyz.At(1, i))
+					B.Set(2, i*3+2, dNxyz.At(2, i))
+					// Fourth row.
+					B.Set(3, i*3, dNxyz.At(1, i))
+					B.Set(3, i*3+1, dNxyz.At(0, i))
+					// Fifth row.
+					B.Set(4, i*3+1, dNxyz.At(2, i))
+					B.Set(4, i*3+2, dNxyz.At(1, i))
+					// Sixth row.
+					B.Set(5, i*3, dNxyz.At(2, i))
+					B.Set(5, i*3+2, dNxyz.At(0, i))
+				}
 
-func constrainRUCEdge(NN *mat.Dense, nodes []Vec, e1, e2 []int, rows, crossDim int, modelSize Vec) (proc int) {
-	if crossDim < 0 || crossDim > 2 {
-		panic("bad cross dimension (0,1,2 corresponds to X,Y,Z")
-	}
-	const (
-		VecSize   = unsafe.Sizeof(Vec{})
-		VecOffset = unsafe.Alignof(Vec{}.X)
-	)
-	rowsStart := rows
-	nodePtr := uintptr(unsafe.Pointer(&nodes[0]))
-	offset := uintptr(VecOffset * uintptr(crossDim))
-	modelPtr := uintptr(unsafe.Pointer(&modelSize))
-	modelDim := *(*float64)(unsafe.Pointer(modelPtr + offset))
-	for _, i1 := range e1 {
-		// very unsafe. very sharp.
-		pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i1) + offset))
-		for _, i2 := range e2 {
-			Pdim := *(*float64)(unsafe.Pointer(nodePtr + VecSize*uintptr(i2) + offset))
-			if pdim == Pdim && 0 < pdim && pdim < modelDim {
-				constrainDisplacements(NN, rows, i1, i2)
-				rows++
+				auxIdx := iele*(Nnodelem*Nstressnod) + inode*Nstressnod
+				// strain = B*D  where D is displacements
+				s := strain[auxIdx : auxIdx+6]
+				auxVec.SetRawVector(blas64.Vector{N: 6, Inc: 1, Data: s})
+				auxVec.MulVec(B, elemDisplacements) // To calculate stresses later on: stress = C*B*D = C*strain
+				s = strain[auxIdx : auxIdx+6]
 			}
 		}
-	}
-	return rows - rowsStart
-}
 
-func constrainDisplacements(NN *mat.Dense, r, i1, i2 int) {
-	NN.Set(r*3, i1*3, -1)
-	NN.Set(r*3, i2*3, 1)
-	NN.Set(r*3+1, i1*3+1, -1)
-	NN.Set(r*3+1, i2*3+1, 1)
-	NN.Set(r*3+2, i1*3+2, -1)
-	NN.Set(r*3+2, i2*3+2, 1)
+		// saveMatToFile("strain.txt", mat.NewVecDense(len(strain), strain))
+		// Integrate at Gauss points
+		for ipg, pg := range upg {
+			N[ipg] = mat.NewVecDense(8, h8FormFuncs(pg.X, pg.Y, pg.Z))
+			dN[ipg] = mat.NewDense(3, 8, h8FormFuncsDiff(pg.X, pg.Y, pg.Z))
+		}
+		strainSum := mat.NewVecDense(6, nil)
+		stressSum := mat.NewVecDense(6, nil)
+		auxVec = *mat.NewVecDense(6, nil)
+		for iele := range elems {
+			enodi := elems[iele][:]
+			storeElemNode(enod, nodes, enodi)
+			storeElemDofs(edofs, enodi, 3)
+			for ipg := range upg {
+				jac.Mul(dN[ipg], denseFromR3(enod))
+				intV := jac.Det() * wpg[ipg]
+				// Store strain.
+				auxIdx := iele*(Nnodelem*Nstressnod) + ipg*Nstressnod
+				strainVec := mat.NewVecDense(6, strain[auxIdx:auxIdx+6])
+				strainSum.AddScaledVec(strainSum, intV, strainVec)
+				// Calculate stress and store.
+				auxVec.MulVec(Cm, strainVec)
+				stressSum.AddScaledVec(stressSum, intV, &auxVec)
+			}
+		}
+		if rucCase < 3 {
+			Cruc.Set(rucCase, rucCase, stressSum.AtVec(rucCase)/strainSum.AtVec(rucCase))
+		}
+		// For fiber oriented in X direction.
+		switch rucCase {
+		case 1:
+			xy := stressSum.AtVec(0) / strainSum.AtVec(1)
+			zy := stressSum.AtVec(2) / strainSum.AtVec(1)
+			Cruc.Set(0, 1, xy)
+			Cruc.Set(1, 0, xy)
+			Cruc.Set(1, 2, zy)
+			Cruc.Set(2, 1, zy)
+		case 2:
+			xz := stressSum.AtVec(0) / strainSum.AtVec(2)
+			Cruc.Set(0, 2, xz)
+			Cruc.Set(2, 0, xz)
+		case 3:
+			Cruc.Set(3, 3, stressSum.AtVec(4)/strainSum.AtVec(4)) // yz
+		case 4:
+			Cruc.Set(4, 4, stressSum.AtVec(5)/strainSum.AtVec(5)) // xz
+		case 5:
+			Cruc.Set(5, 5, stressSum.AtVec(3)/strainSum.AtVec(3)) // xy
+		}
+	}
+	fmt.Printf("%f", mat.Formatted(Cruc))
+
+	// disp.SliceVec(0,)
+	// KG := booleanIndexing(K, true, freeDofs, freeDofs)
+	// fmt.Println(disp.SliceVec(0, dofsSolid))
+	_ = sx
+	_ = sX
+	_ = dofsSolid
+	_, _, _, _, _, _, _, _ = cxyz, cXyz, cxYz, cXYz, cxyZ, cXyZ, cxYZ, cXYZ
 }
 
 // func convertToRenderTriangles(t []Triangle) []render.Triangle3 {
